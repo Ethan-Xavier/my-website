@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Waiter POS — TRUE MERGE + Payment</title>
+<title>Waiter POS — TRUE MERGE & PAY</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
 :root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4}
@@ -26,13 +26,15 @@ button.small{padding:6px 8px;border-radius:8px;border:none;cursor:pointer}
 .cancel-btn{background:#dc3545;color:#fff}
 .merge-btn{background:#007bff;color:#fff}
 .split-btn{background:#ffc107;color:#222}
+.pay-btn{background:#17a2b8;color:#fff}
 .move-select{padding:6px;border-radius:6px}
 .controls-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
-.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000}
-.overlay-content{background:#fff;padding:20px;border-radius:12px;width:90%;max-width:400px;max-height:80%;overflow:auto;position:relative}
-.overlay h3{margin-top:0;text-align:center}
-.pay-btn{background:var(--green);color:#fff;border-radius:8px;padding:8px;margin-top:12px;width:100%;font-weight:700;cursor:pointer;border:none}
-.close-overlay{position:absolute;top:8px;right:12px;background:#dc3545;color:#fff;border:none;border-radius:8px;padding:6px;cursor:pointer}
+.payment-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;z-index:1000;display:none}
+.payment-box{background:#fff;padding:20px;border-radius:12px;width:300px;max-height:80%;overflow:auto}
+.payment-box h3{margin-top:0;text-align:center}
+.payment-methods{display:flex;gap:8px;margin-bottom:12px}
+.payment-methods button{flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer}
+.pay-confirm{background:var(--green);color:#fff;width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer}
 @media(max-width:760px){ .order-box,.table-box{width:92%} .tables-container{flex-direction:column;align-items:center} }
 </style>
 </head>
@@ -40,151 +42,157 @@ button.small{padding:6px 8px;border-radius:8px;border:none;cursor:pointer}
 
 <div class="order-box">
   <h2><i class="fas fa-utensils"></i> Waiter POS</h2>
+
   <label>Table</label>
   <select id="tableSelect"><option value="" disabled selected>Select table</option></select>
+
   <label>Description (person / note)</label>
   <input id="description" placeholder="e.g. John / Veggie" />
+
+  <label>Type</label>
+  <select id="typeSelect"><option value="" disabled selected>Select type</option><option value="food">Food</option><option value="drink">Drink</option></select>
+
   <label>Item</label>
-  <input id="itemInput" placeholder="Item name" />
-  <label>Price</label>
-  <input id="priceInput" type="number" min="1" placeholder="Price" />
+  <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
+
   <label>Quantity</label>
   <input id="quantity" type="number" min="1" value="1" />
+
   <button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
 </div>
 
 <div id="tablesContainer" class="tables-container"></div>
 
-<!-- Payment overlay -->
-<div id="payOverlay" class="overlay">
-  <div class="overlay-content">
-    <button class="close-overlay" id="closeOverlay"><i class="fas fa-times"></i></button>
+<div id="paymentOverlay" class="payment-overlay">
+  <div class="payment-box">
     <h3>Payment</h3>
-    <div id="receiptList"></div>
-    <label>Payment Method</label>
-    <select id="paymentMethod">
-      <option value="Cash">Cash</option>
-      <option value="Card">Card</option>
-      <option value="Mobile">Mobile</option>
-    </select>
-    <button id="payConfirm" class="pay-btn">Paid</button>
+    <div id="paymentSubOrders"></div>
+    <div class="payment-methods">
+      <button data-method="Cash">Cash</button>
+      <button data-method="Card">Card</button>
+      <button data-method="Mobile">Mobile</button>
+    </div>
+    <button id="payConfirm" class="pay-confirm">Paid</button>
+    <button id="closePayment" class="pay-confirm" style="background:#dc3545;margin-top:8px">Close</button>
   </div>
 </div>
 
 <script>
-let tables = {};
-let mergedHistory = {};
-let currentPayTable = null;
-let currentPaySub = null;
-
 const tableSelect = document.getElementById('tableSelect');
-const descriptionInput = document.getElementById('description');
-const itemInput = document.getElementById('itemInput');
-const priceInput = document.getElementById('priceInput');
+const typeSelect = document.getElementById('typeSelect');
+const itemSelect = document.getElementById('itemSelect');
 const quantityInput = document.getElementById('quantity');
+const descriptionInput = document.getElementById('description');
 const addItemBtn = document.getElementById('addItemBtn');
 const tablesContainer = document.getElementById('tablesContainer');
-const payOverlay = document.getElementById('payOverlay');
-const receiptList = document.getElementById('receiptList');
-const paymentMethod = document.getElementById('paymentMethod');
+const paymentOverlay = document.getElementById('paymentOverlay');
+const paymentSubOrders = document.getElementById('paymentSubOrders');
 const payConfirm = document.getElementById('payConfirm');
-const closeOverlay = document.getElementById('closeOverlay');
+const closePayment = document.getElementById('closePayment');
 
-// Populate table select
+const menuItems = {
+  food: ['Salsicha','Rabada','Pizza','Picanha'],
+  drink: ['Water','Juice','Beer','Wine']
+};
+
+let tables = {};
+let mergedHistory = {};
+let payTarget = null; // { tableID, subIndex (optional) }
+
 for(let i=1;i<=13;i++){
-  const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
-  tableSelect.appendChild(opt);
+  const opt=document.createElement('option'); opt.value=i; opt.textContent=i; tableSelect.appendChild(opt);
 }
 
-// Add item
-addItemBtn.addEventListener('click', ()=>{
-  const tableNum = tableSelect.value;
-  const desc = descriptionInput.value.trim() || 'Person';
-  const itemName = itemInput.value.trim();
-  const price = parseInt(priceInput.value);
-  const qty = parseInt(quantityInput.value) || 1;
+typeSelect.addEventListener('change',()=>{
+  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
+  (menuItems[typeSelect.value]||[]).forEach(i=>{
+    const opt=document.createElement('option'); opt.value=i; opt.textContent=i; itemSelect.appendChild(opt);
+  });
+});
 
-  if(!tableNum || !itemName || !price || qty<1){ alert('Complete all fields'); return; }
+addItemBtn.addEventListener('click',()=>{
+  const tableNum=tableSelect.value, type=typeSelect.value, item=itemSelect.value, qty=parseInt(quantityInput.value)||1, desc=(descriptionInput.value||'Person').trim();
+  if(!tableNum||!type||!item||qty<1){alert('Fill all fields'); return;}
 
-  let tableID = Object.keys(tables).find(id=>tables[id].table==tableNum);
-  if(!tableID){
-    tableID = 'TABLE-'+Date.now();
-    tables[tableID]={id:tableID,table:tableNum,tableStatus:'opened',subOrders:[]};
-  }
+  let tableID=Object.keys(tables).find(id=>tables[id].table==tableNum);
+  if(!tableID){ tableID='TABLE-'+Date.now(); tables[tableID]={id:tableID, table:tableNum, subOrders:[]}; }
+  let sub=tables[tableID].subOrders.find(s=>s.description===desc);
+  if(!sub){ sub={personID:'PERSON-'+Date.now(), description:desc, items:[], totalPrice:0}; tables[tableID].subOrders.push(sub); }
 
-  let sub = tables[tableID].subOrders.find(s=>s.description===desc);
-  if(!sub){
-    sub={personID:'PERSON-'+Date.now(),description:desc,items:[],totalPrice:0};
-    tables[tableID].subOrders.push(sub);
-  }
-
-  sub.items.push({id:'ITEM-'+Date.now(),item:itemName,price,quantity:qty,status:'pending',paid:false});
-  sub.totalPrice = sub.items.reduce((s,i)=>s+i.price*i.quantity,0);
-
-  descriptionInput.value=''; itemInput.value=''; priceInput.value=''; quantityInput.value=1;
+  sub.items.push({id:'ITEM-'+Date.now(), item, quantity:qty, price:10, status:'pending'});
+  sub.totalPrice=sub.items.reduce((s,i)=>s+i.price*i.quantity,0);
+  quantityInput.value=1; descriptionInput.value='';
   renderTables();
 });
 
 function renderTables(){
   tablesContainer.innerHTML='';
-  Object.values(tables).filter(t=>t.tableStatus==='opened').sort((a,b)=>b.table-a.table).forEach(tableOrder=>{
+  Object.values(tables).forEach(table=>{
     const box=document.createElement('div'); box.className='table-box';
-    const total=tableOrder.subOrders.reduce((s,sub)=>s+(sub.totalPrice||0),0);
-    box.innerHTML=`<div class="table-head"><div><strong>Table ${tableOrder.table}</strong></div><div class="table-total">${total} mts</div></div>`;
+    const total=table.subOrders.reduce((s,sb)=>s+sb.totalPrice,0);
+    box.innerHTML=`<div class="table-head"><div><strong>Table ${table.table}</strong></div><div class="table-total">${total} mts</div></div>`;
 
-    // Controls row
     const controls=document.createElement('div'); controls.className='controls-row';
-    const moveSelect=document.createElement('select'); moveSelect.className='move-select';
-    moveSelect.innerHTML=`<option value="" disabled selected>Move table</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
+    const moveSel=document.createElement('select'); moveSel.className='move-select';
+    moveSel.innerHTML=`<option disabled selected>Move table</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
+    controls.appendChild(moveSel);
     const moveBtn=document.createElement('button'); moveBtn.className='small'; moveBtn.textContent='Move';
-    moveBtn.addEventListener('click',()=>{ const newTable=moveSelect.value; if(!newTable||String(newTable)==String(tableOrder.table)){alert('Choose another table');return;} tableOrder.table=newTable; renderTables(); });
-    controls.appendChild(moveSelect); controls.appendChild(moveBtn);
+    moveBtn.addEventListener('click',()=>{ const nt=moveSel.value; if(nt) {table.table=nt; renderTables();} });
+    controls.appendChild(moveBtn);
 
-    // Merge button
-    if(tableOrder.subOrders.length>1 && !mergedHistory[tableOrder.id]){
+    if(table.subOrders.length>1 && !mergedHistory[table.id]){
       const mergeBtn=document.createElement('button'); mergeBtn.className='merge-btn small'; mergeBtn.textContent='Merge';
       mergeBtn.addEventListener('click',()=>{
-        mergedHistory[tableOrder.id]=JSON.parse(JSON.stringify(tableOrder.subOrders));
-        const mergedItems=[]; tableOrder.subOrders.forEach(s=>mergedItems.push(...s.items));
-        tableOrder.subOrders=[{personID:'PERSON-'+Date.now(),description:'Merged Order',items:mergedItems,totalPrice:mergedItems.reduce((s,i)=>s+i.price*i.quantity,0)}];
+        mergedHistory[table.id]=JSON.parse(JSON.stringify(table.subOrders));
+        const mergedItems=[]; table.subOrders.forEach(s=>mergedItems.push(...s.items));
+        table.subOrders=[{personID:'PERSON-'+Date.now(), description:'Merged Order', items:mergedItems, totalPrice:mergedItems.reduce((s,i)=>s+i.price*i.quantity,0)}];
         renderTables();
       });
       controls.appendChild(mergeBtn);
     }
 
-    // Split button
-    if(mergedHistory[tableOrder.id]){
+    if(mergedHistory[table.id]){
       const splitBtn=document.createElement('button'); splitBtn.className='split-btn small'; splitBtn.textContent='Split';
-      splitBtn.addEventListener('click',()=>{ tableOrder.subOrders=JSON.parse(JSON.stringify(mergedHistory[tableOrder.id])); delete mergedHistory[tableOrder.id]; renderTables(); });
+      splitBtn.addEventListener('click',()=>{ table.subOrders=JSON.parse(JSON.stringify(mergedHistory[table.id])); delete mergedHistory[table.id]; renderTables(); });
       controls.appendChild(splitBtn);
     }
 
-    // Pay table button
-    const payBtn=document.createElement('button'); payBtn.className='small'; payBtn.textContent='Pay Table';
-    payBtn.addEventListener('click',()=>{ openPaymentOverlay(tableOrder.id); });
+    const payBtn=document.createElement('button'); payBtn.className='pay-btn small'; payBtn.textContent='Pay';
+    payBtn.addEventListener('click',()=>{ openPayment({tableID:table.id}); });
     controls.appendChild(payBtn);
 
     box.appendChild(controls);
 
-    tableOrder.subOrders.forEach((sub,subIndex)=>{
+    table.subOrders.forEach((sub,idx)=>{
       const p=document.createElement('div'); p.className='person-box';
-      p.innerHTML=`<div style="display:flex;justify-content:space-between"><div><strong>${sub.description}</strong></div><div>${sub.totalPrice||0} mts</div></div>`;
+      p.innerHTML=`<div style="display:flex;justify-content:space-between"><div><strong>${sub.description}</strong></div><div>${sub.totalPrice} mts</div></div>`;
 
-      // Move sub-order
-      const controlsSub=document.createElement('div'); controlsSub.className='person-actions';
+      const subControls=document.createElement('div'); subControls.className='person-actions';
       const moveS=document.createElement('select'); moveS.className='move-select';
-      moveS.innerHTML=`<option value="" disabled selected>Move sub-order</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
+      moveS.innerHTML=`<option disabled selected>Move sub-order</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
+      subControls.appendChild(moveS);
       const moveSBtn=document.createElement('button'); moveSBtn.className='small'; moveSBtn.textContent='Move';
-      moveSBtn.addEventListener('click',()=>{ const newT=moveS.value; if(!newT||String(newT)==String(tableOrder.table)){alert('Choose another table');return;} let targetID=Object.keys(tables).find(id=>tables[id].table==newT); if(!targetID){ targetID='TABLE-'+Date.now(); tables[targetID]={id:targetID,table:newT,tableStatus:'opened',subOrders:[]}; } tables[targetID].subOrders.push(JSON.parse(JSON.stringify(sub))); tableOrder.subOrders.splice(subIndex,1); renderTables(); });
-      controlsSub.appendChild(moveS); controlsSub.appendChild(moveSBtn);
-      p.appendChild(controlsSub);
+      moveSBtn.addEventListener('click',()=>{ const nt=moveS.value; if(nt){ let target=Object.values(tables).find(t=>t.table==nt); if(!target){ const tid='TABLE-'+Date.now(); tables[tid]={id:tid, table:nt, subOrders:[]}; target=tables[tid]; } target.subOrders.push(JSON.parse(JSON.stringify(sub))); table.subOrders.splice(idx,1); renderTables(); } });
+      subControls.appendChild(moveSBtn);
 
-      // Items
-      sub.items.forEach((it,itIndex)=>{
+      const paySubBtn=document.createElement('button'); paySubBtn.className='pay-btn small'; paySubBtn.textContent='Pay';
+      paySubBtn.addEventListener('click',()=>{ openPayment({tableID:table.id, subIndex:idx}); });
+      subControls.appendChild(paySubBtn);
+
+      p.appendChild(subControls);
+
+      sub.items.forEach(it=>{
         const itemDiv=document.createElement('div'); itemDiv.className='item-box '+(it.status==='pending'?'pending':'served');
-        itemDiv.innerHTML=`<div style="min-width:150px"><div><strong>${it.item} x${it.quantity}</strong></div><div style="font-size:13px;color:#555">[${it.status}]</div></div><div style="text-align:right"><div style="font-weight:700">${it.price*it.quantity} mts</div><div style="margin-top:6px">${it.status==='pending'?'<button class="served-btn small">Served</button>':''}<button class="cancel-btn small">Cancel</button></div></div>`;
-        if(it.status==='pending'){ itemDiv.querySelector('.served-btn').addEventListener('click',()=>{ it.status='served'; renderTables(); }); }
-        itemDiv.querySelector('.cancel-btn').addEventListener('click',()=>{ sub.items.splice(itIndex,1); sub.totalPrice=sub.items.reduce((s,i)=>s+i.price*i.quantity,0); if(sub.items.length===0)tableOrder.subOrders.splice(subIndex,1); renderTables(); });
+        itemDiv.innerHTML=`<div><strong>${it.item} x${it.quantity}</strong><div style="font-size:13px;color:#555">[${it.status}]</div></div>
+          <div style="text-align:right">
+            <div style="font-weight:700">${it.price*it.quantity} mts</div>
+            <div style="margin-top:6px">
+              ${it.status==='pending'?'<button class="served-btn small">Served</button>':''}
+              <button class="cancel-btn small">Cancel</button>
+            </div>
+          </div>`;
+        if(it.status==='pending') itemDiv.querySelector('.served-btn').addEventListener('click',()=>{ it.status='served'; renderTables(); });
+        itemDiv.querySelector('.cancel-btn').addEventListener('click',()=>{ const idx=sub.items.findIndex(x=>x===it); if(idx!==-1) sub.items.splice(idx,1); renderTables(); });
         p.appendChild(itemDiv);
       });
 
@@ -195,35 +203,34 @@ function renderTables(){
   });
 }
 
-// Payment overlay
-function openPaymentOverlay(tableID, subID=null){
-  currentPayTable=tableID;
-  currentPaySub=subID;
-  receiptList.innerHTML='';
-  const tableOrder=tables[tableID];
-  const subs=subID ? tableOrder.subOrders.filter(s=>s.personID===subID) : tableOrder.subOrders;
-  subs.forEach(sub=>{
-    const div=document.createElement('div'); div.style.marginBottom='8px';
-    sub.items.forEach(it=>{
-      const span=document.createElement('div'); span.textContent=`${it.item} x${it.quantity} — ${it.price*it.quantity} mts — [${it.status}] ${it.paid?'PAID':''}`; div.appendChild(span);
-    });
-    receiptList.appendChild(div);
-  });
-  payOverlay.style.display='flex';
+function openPayment(target){
+  payTarget=target;
+  paymentSubOrders.innerHTML='';
+  const t=tables[target.tableID];
+  if(target.subIndex!==undefined){ // sub-order payment
+    const sub=t.subOrders[target.subIndex];
+    paymentSubOrders.innerHTML=`<div>${sub.description} — ${sub.totalPrice} mts</div>`;
+  } else { // table payment
+    t.subOrders.forEach(sub=>{ paymentSubOrders.innerHTML+=`<div>${sub.description} — ${sub.totalPrice} mts</div>`; });
+  }
+  paymentOverlay.style.display='flex';
 }
 
-payConfirm.addEventListener('click',()=>{
-  const tableOrder=tables[currentPayTable];
-  const subs=currentPaySub ? tableOrder.subOrders.filter(s=>s.personID===currentPaySub) : tableOrder.subOrders;
-  const method=paymentMethod.value;
-  subs.forEach(sub=>{ sub.items.forEach(it=>it.paid=true); });
-  payOverlay.style.display='none';
-  currentPayTable=null; currentPaySub=null;
-  renderTables();
+document.querySelectorAll('.payment-methods button').forEach(btn=>{
+  btn.addEventListener('click',()=>{ payTarget.method=btn.dataset.method; });
 });
 
-closeOverlay.addEventListener('click',()=>{ payOverlay.style.display='none'; currentPayTable=null; currentPaySub=null; });
+payConfirm.addEventListener('click',()=>{
+  if(!payTarget) return;
+  const t=tables[payTarget.tableID];
+  if(payTarget.subIndex!==undefined){ t.subOrders[payTarget.subIndex].paid=true; }
+  else t.subOrders.forEach(sub=>sub.paid=true);
+  paymentOverlay.style.display='none'; renderTables();
+});
+
+closePayment.addEventListener('click',()=>{ paymentOverlay.style.display='none'; });
 </script>
 
 </body>
 </html>
+
