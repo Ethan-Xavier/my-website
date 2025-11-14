@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Waiter POS — TRUE MERGE (Merged Order + Payment)</title>
+<title>Waiter POS — Payment</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
   :root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4}
@@ -13,7 +13,7 @@
   input,select{width:100%;padding:9px;margin:6px 0;border-radius:8px;border:none;font-size:15px;outline:none}
   .add-btn{background:var(--green);color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none}
   .tables-container{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%}
-  .table-box{background:#fff;padding:12px;border-radius:12px;width:340px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:640px;overflow:auto}
+  .table-box{background:#fff;padding:12px;border-radius:12px;width:340px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:640px;overflow:auto;position:relative}
   .table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .table-total{font-weight:700}
   .person-box{background:#f0f0f0;padding:8px;border-radius:10px;margin-bottom:8px}
@@ -27,13 +27,12 @@
   .merge-btn{background:#007bff;color:#fff}
   .split-btn{background:#ffc107;color:#222}
   .move-select{padding:6px;border-radius:6px}
-  .low-stock{color:#d9534f;font-weight:700;font-size:13px}
-  .note{font-size:13px;color:#666;margin-top:6px}
   .controls-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
-  .modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;justify-content:center;align-items:center;z-index:999;display:none}
-  .modal{background:#fff;padding:18px;border-radius:12px;width:300px;max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
-  .modal h3{margin:0;text-align:center}
-  .payment-methods{display:flex;flex-direction:column;gap:6px}
+  /* Modal */
+  .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000}
+  .modal{background:#fff;padding:20px;border-radius:12px;width:90%;max-width:400px;max-height:80%;overflow:auto;position:relative}
+  .modal h3{margin-top:0;text-align:center}
+  .close-modal{position:absolute;top:8px;right:12px;font-size:18px;cursor:pointer}
   @media(max-width:760px){ .order-box,.table-box{width:92%} .tables-container{flex-direction:column;align-items:center} }
 </style>
 </head>
@@ -54,35 +53,24 @@
   <label>Item</label>
   <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
 
-  <select id="priceSelect" style="display:none"></select>
-
   <label>Quantity</label>
   <input id="quantity" type="number" min="1" value="1" />
 
   <div style="display:flex;gap:8px;align-items:center">
     <button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
-    <div id="stockNote" style="margin-left:8px"></div>
   </div>
 
-  <div class="note">Inventory updates on add. Canceling items restores stock. Merge produces one real sub-order named "Merged Order".</div>
+  <div class="note">Serve buttons disappear when clicked. Pay tables/sub-orders via modal.</div>
 </div>
 
 <div id="tablesContainer" class="tables-container"></div>
 
-<!-- Payment Modal -->
-<div id="paymentModal" class="modal-bg">
+<!-- Payment modal -->
+<div id="paymentModal" class="modal-overlay">
   <div class="modal">
+    <span class="close-modal">&times;</span>
     <h3>Pay Table</h3>
-    <div id="modalContent"></div>
-    <label>Payment Method</label>
-    <select id="paymentMethodSelect">
-      <option value="" disabled selected>Select method</option>
-      <option value="Mobile">Mobile</option>
-      <option value="Card">Card</option>
-      <option value="Cash">Cash</option>
-    </select>
-    <button id="payBtn" class="add-btn">Paid</button>
-    <button id="closeModalBtn" class="small" style="background:#ccc;color:#000">Close</button>
+    <div id="paymentContent"></div>
   </div>
 </div>
 
@@ -102,159 +90,202 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+/* -------------------------
+   UI elements
+------------------------- */
 const tableSelect = document.getElementById('tableSelect');
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
-const priceSelect = document.getElementById('priceSelect');
 const quantityInput = document.getElementById('quantity');
 const descriptionInput = document.getElementById('description');
 const addItemBtn = document.getElementById('addItemBtn');
 const tablesContainer = document.getElementById('tablesContainer');
-const stockNote = document.getElementById('stockNote');
-
 const paymentModal = document.getElementById('paymentModal');
-const modalContent = document.getElementById('modalContent');
-const paymentMethodSelect = document.getElementById('paymentMethodSelect');
-const payBtn = document.getElementById('payBtn');
-const closeModalBtn = document.getElementById('closeModalBtn');
+const paymentContent = document.getElementById('paymentContent');
+const closeModal = paymentModal.querySelector('.close-modal');
 
+/* -------------------------
+   Menu items
+------------------------- */
 const menuItems = {
-  food: [
-    {item:'Salsicha',price:[200]}, {item:'Sasicha c/ Queijo',price:[300]}, {item:'Worse',price:[200]},
-    {item:'Babalaza',price:[300]}, {item:'Rabada',price:[200]}, {item:'Língua',price:[200]},
-    {item:'Brisket',price:[400]}, {item:'Figado de vaca',price:[300]}, {item:'Cordornizes',price:[350]},
-    {item:'Moela',price:[300]}, {item:'Sopa de legumes',price:[270]}, {item:'Sopa de Feijão',price:[220]},
-    {item:'Salgadinhos (dose)',price:[100]}, {item:'Pizza Grande',price:[600]}, {item:'Pizza Pequena',price:[350]},
-    {item:'Picanha',price:[500]}, {item:'T-Bone',price:[450]}, {item:'Lombo',price:[300]}, {item:'Bife',price:[600]},
-    {item:'Bitoque',price:[500]}, {item:'Prego Completo',price:[250]}, {item:'Prego no Prato',price:[300]},
-    {item:'Lasanha',price:[600]}, {item:'Pernil',price:[350]}, {item:'Carne de Porco',price:[350]},
-    {item:'Costuleta',price:[500,850]}, {item:'Frango Inteiro',price:[700]}, {item:'Meio Frango',price:[350]},
-    {item:'Dose de Frango',price:[250]}, {item:'Peixe c/m legumes',price:[600]}
-  ],
-  drink: [
-    {item:'2M Grande',price:[70]}, {item:'Savana',price:[80]}, {item:'Heineken',price:[80]}, {item:'Heineken Grande',price:[70]},
-    {item:'Impala',price:[60]}, {item:'Txilar a lata',price:[60]}, {item:'Txilar garrafa',price:[70]},
-    {item:'Corona',price:[100]}, {item:'Brutal a garafa',price:[80]}, {item:'Brutal a lata',price:[100]},
-    {item:'Água Tônica',price:[70]}, {item:'May fair',price:[90]}, {item:'Flying Fish',price:[80]}, {item:'Lite',price:[80]},
-    {item:'Black Crown',price:[80]}, {item:'Stella',price:[100]}, {item:'Bernina',price:[90]}, {item:'Whisky Jameson',price:[150,1250]},
-    {item:'Amarula',price:[150,850]}, {item:'Paul Cluver Branco',price:[850]}, {item:'Roodberg Black',price:[900]},
-    {item:'Vinho da Casa',price:[200]}, {item:'Refresco 2L',price:[110]}, {item:'Refresco 1L',price:[70]}, {item:'Refresco a lata',price:[70]},
-    {item:'Sumo compal',price:[70]}, {item:'Sumo compal 1L',price:[140]}, {item:'Chá Simples',price:[50]}
-  ]
+  food: [{item:'Pizza',price:[500]},{item:'Burger',price:[300]},{item:'Pasta',price:[400]}],
+  drink: [{item:'Coke',price:[50]},{item:'Water',price:[30]},{item:'Beer',price:[100]}]
 };
 
-let tables = {};
-let mergedHistory = {};
-let stock = {};
+/* -------------------------
+   Local state
+------------------------- */
+let tables = {}; 
 
+/* -------------------------
+   Firestore refs
+------------------------- */
 const tablesDocRef = doc(db,'posData','tables');
-const stockDocRef = doc(db,'posData','stock');
 
+/* -------------------------
+   Init table doc if missing
+------------------------- */
 (async function initIfEmpty(){
   const tSnap = await getDoc(tablesDocRef);
   if(!tSnap.exists()) await setDoc(tablesDocRef, { tables: {} });
-  const sSnap = await getDoc(stockDocRef);
-  if(!sSnap.exists()){
-    for(const k of ['food','drink']){
-      menuItems[k].forEach(m => { stock[m.item] = 20; });
-    }
-    await setDoc(stockDocRef, { stock });
-  }
 })();
 
-onSnapshot(stockDocRef, snap=>{ const data = snap.data(); if(data && data.stock) stock = data.stock; renderStockNote(); });
-onSnapshot(tablesDocRef, snap=>{ const data = snap.data(); tables = (data && data.tables) ? data.tables : {}; renderTables(); });
-
-async function saveTablesToFirebase(){ for(const key in tables){ if(!tables[key].subOrders || tables[key].subOrders.length===0) delete tables[key]; else tables[key].subOrders = tables[key].subOrders.filter(s=>s.items && s.items.length>0); } await setDoc(tablesDocRef, { tables }); }
-async function saveStockToFirebase(){ await setDoc(stockDocRef, { stock }); }
-
-for(let i=1;i<=13;i++){ const opt = document.createElement('option'); opt.value=i; opt.textContent=i; tableSelect.appendChild(opt); }
-typeSelect.addEventListener('change', ()=>{ itemSelect.innerHTML='<option value="" disabled selected>Select item</option>'; (menuItems[typeSelect.value]||[]).forEach(m=>{ const opt=document.createElement('option'); opt.value=m.item; opt.textContent=m.item; itemSelect.appendChild(opt); }); priceSelect.style.display='none'; });
-itemSelect.addEventListener('change', ()=>{ const arr=menuItems[typeSelect.value]||[]; const menuItem=arr.find(m=>m.item===itemSelect.value); if(menuItem && menuItem.price.length>1){ priceSelect.innerHTML='<option value="" disabled selected>Select price</option>'; menuItem.price.forEach(p=>{ const opt=document.createElement('option'); opt.value=p; opt.textContent=p+' mts'; priceSelect.appendChild(opt); }); priceSelect.style.display='block'; } else priceSelect.style.display='none'; });
-
-function renderStockNote(){ const lows=Object.entries(stock).filter(([,q])=>q<=3).slice(0,4); stockNote.innerHTML=lows.length?`<span class="low-stock">Low: ${lows.map(([i])=>i).join(', ')}</span>`:''; }
-
-addItemBtn.addEventListener('click', async ()=>{
-  const tableNum=tableSelect.value, type=typeSelect.value, itemName=itemSelect.value;
-  const price=priceSelect.style.display==='block'?parseInt(priceSelect.value):(menuItems[type]||[]).find(m=>m.item===itemName)?.price[0];
-  const qty=parseInt(quantityInput.value)||1, desc=(descriptionInput.value||'Person').trim();
-  if(!tableNum||!type||!itemName||!price||qty<1){ alert('Select Table, Type, Item and Quantity.'); return; }
-  const available=(stock[itemName]===undefined)?Infinity:stock[itemName];
-  if(available!==Infinity && available<qty){ alert(`Not enough stock for "${itemName}". Available: ${available}`); return; }
-
-  let tableID=Object.keys(tables).find(id=>tables[id].table==tableNum && tables[id].tableStatus==='opened');
-  if(!tableID){ tableID='TABLE-'+Date.now(); tables[tableID]={id:tableID,table:tableNum,tableStatus:'opened',time:new Date().toISOString(),subOrders:[]}; }
-  const tableOrder=tables[tableID];
-  let sub=tableOrder.subOrders.find(s=>s.description===desc);
-  if(!sub){ sub={personID:'PERSON-'+Date.now(),description:desc,items:[],totalPrice:0,paid:false,paymentMethod:null,paymentTime:null}; tableOrder.subOrders.push(sub); }
-
-  const newItem={id:'ITEM-'+Date.now(),item:itemName,price,quantity:qty,status:'pending',time:new Date().toISOString()};
-  sub.items.push(newItem); sub.totalPrice=sub.items.reduce((s,i)=>s+i.price*i.quantity,0);
-  if(stock[itemName]!==undefined && stock[itemName]!==Infinity) stock[itemName]=Math.max(0,(stock[itemName]||0)-qty);
-  await saveStockToFirebase(); await saveTablesToFirebase();
-  quantityInput.value=1; descriptionInput.value=''; renderTables();
+/* -------------------------
+   Subscribe to tables
+------------------------- */
+onSnapshot(tablesDocRef, snap=>{
+  const data = snap.data();
+  tables = (data && data.tables) ? data.tables : {};
+  renderTables();
 });
 
+/* -------------------------
+   Helpers: save
+------------------------- */
+async function saveTablesToFirebase(){
+  // cleanup empty subOrders
+  for(const key in tables){
+    if(!tables[key].subOrders || tables[key].subOrders.length===0) delete tables[key];
+  }
+  await setDoc(tablesDocRef, { tables });
+}
+
+/* -------------------------
+   Populate table select (1..13)
+------------------------- */
+for(let i=1;i<=13;i++){
+  const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
+  tableSelect.appendChild(opt);
+}
+
+/* -------------------------
+   Type -> Item population
+------------------------- */
+typeSelect.addEventListener('change', ()=>{
+  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
+  const arr = menuItems[typeSelect.value] || [];
+  arr.forEach(m=>{
+    const opt = document.createElement('option'); opt.value=m.item; opt.textContent=m.item;
+    itemSelect.appendChild(opt);
+  });
+});
+
+/* -------------------------
+   Add item
+------------------------- */
+addItemBtn.addEventListener('click', async ()=>{
+  const tableNum = tableSelect.value;
+  const type = typeSelect.value;
+  const itemName = itemSelect.value;
+  const qty = parseInt(quantityInput.value)||1;
+  const desc = (descriptionInput.value || 'Person').trim();
+
+  if(!tableNum || !type || !itemName){ alert('Select table, type, item'); return; }
+
+  // find or create table
+  let tableID = Object.keys(tables).find(id => tables[id].table==tableNum && tables[id].tableStatus==='opened');
+  if(!tableID){
+    tableID = 'TABLE-'+Date.now();
+    tables[tableID] = { id: tableID, table: tableNum, tableStatus:'opened', subOrders: [] };
+  }
+  const tableOrder = tables[tableID];
+
+  // find or create sub-order
+  let sub = tableOrder.subOrders.find(s => s.description===desc);
+  if(!sub){
+    sub = { personID: 'PERSON-'+Date.now(), description: desc, items: [], totalPrice: 0, paymentStatus:'unpaid', paymentMethod:'' };
+    tableOrder.subOrders.push(sub);
+  }
+
+  // push item
+  const price = menuItems[type].find(m=>m.item===itemName).price[0];
+  const newItem = { id:'ITEM-'+Date.now(), item:itemName, price, quantity:qty, status:'pending' };
+  sub.items.push(newItem);
+  sub.totalPrice = sub.items.reduce((s,i)=>s+i.price*i.quantity,0);
+
+  await saveTablesToFirebase();
+  quantityInput.value = 1;
+  descriptionInput.value = '';
+});
+
+/* -------------------------
+   Render tables
+------------------------- */
 function renderTables(){
-  tablesContainer.innerHTML='';
-  Object.values(tables).filter(t=>t.tableStatus==='opened').sort((a,b)=>b.time.localeCompare(a.time)).forEach(tableOrder=>{
-    const box=document.createElement('div'); box.className='table-box';
-    const total=(tableOrder.subOrders||[]).reduce((s,sub)=>s+(sub.totalPrice||0),0);
-    box.innerHTML=`<div class="table-head"><div><strong>Table ${tableOrder.table}</strong></div><div class="table-total">${total} mts</div></div>`;
+  tablesContainer.innerHTML = '';
+  Object.values(tables).filter(t=>t.tableStatus==='opened').forEach(tableOrder=>{
+    const box = document.createElement('div'); box.className='table-box';
+    const total = tableOrder.subOrders.reduce((s,sub)=>s + (sub.totalPrice||0),0);
+    box.innerHTML = `<div class="table-head"><div><strong>Table ${tableOrder.table}</strong></div><div class="table-total">${total} mts</div></div>`;
 
-    const wholeControls=document.createElement('div'); wholeControls.className='controls-row';
-    const moveSelect=document.createElement('select'); moveSelect.className='move-select';
-    moveSelect.innerHTML=`<option value="" disabled selected>Move table</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`; wholeControls.appendChild(moveSelect);
-    const moveBtn=document.createElement('button'); moveBtn.className='small'; moveBtn.textContent='Move';
-    moveBtn.addEventListener('click', async ()=>{ const newTable=moveSelect.value; if(!newTable){ alert('Choose a table to move to'); return; } if(String(newTable)===String(tableOrder.table)){ alert('Already on that table'); return; } tableOrder.table=newTable; const oldID=tableOrder.id; await saveTablesToFirebase(); if(mergedHistory[oldID]){ mergedHistory['TABLE-'+Date.now()]=mergedHistory[oldID]; delete mergedHistory[oldID]; } renderTables(); });
-    wholeControls.appendChild(moveBtn);
+    // Pay table button
+    const payBtn = document.createElement('button'); payBtn.className='small'; payBtn.textContent='Pay Table';
+    payBtn.addEventListener('click', ()=> openPaymentModal(tableOrder.id));
+    box.appendChild(payBtn);
 
-    if((tableOrder.subOrders||[]).length>1 && !mergedHistory[tableOrder.id]){
-      const mergeBtn=document.createElement('button'); mergeBtn.className='merge-btn small'; mergeBtn.textContent='Merge';
-      mergeBtn.addEventListener('click', async ()=>{ mergedHistory[tableOrder.id]=JSON.parse(JSON.stringify(tableOrder.subOrders)); const mergedItems=[]; tableOrder.subOrders.forEach(s=>mergedItems.push(...s.items)); tableOrder.subOrders=[{personID:'PERSON-'+Date.now(),description:'Merged Order',items:mergedItems,totalPrice:mergedItems.reduce((s,i)=>s+i.price*i.quantity,0),paid:false,paymentMethod:null,paymentTime:null}]; await saveTablesToFirebase(); renderTables(); });
-      wholeControls.appendChild(mergeBtn);
-    }
-    box.appendChild(wholeControls);
+    tableOrder.subOrders.forEach(sub=>{
+      const p = document.createElement('div'); p.className='person-box';
+      p.innerHTML = `<div style="display:flex;justify-content:space-between"><strong>${sub.description}</strong><span>${sub.totalPrice} mts</span></div>`;
 
-    (tableOrder.subOrders||[]).forEach(sub=>{
-      const pBox=document.createElement('div'); pBox.className='person-box';
-      pBox.innerHTML=`<strong>${sub.description}</strong> — ${sub.totalPrice} mts`;
-      sub.items.forEach(i=>{
-        const itBox=document.createElement('div'); itBox.className='item-box '+(i.status==='served'?'served':'pending');
-        itBox.innerHTML=`<span>${i.item} x${i.quantity}</span><span>${i.price*i.quantity} mts</span>`;
-        const serveBtn=document.createElement('button'); serveBtn.className='served-btn small'; serveBtn.textContent='Served';
-        serveBtn.addEventListener('click', async ()=>{ i.status='served'; await saveTablesToFirebase(); renderTables(); });
-        const cancelBtn=document.createElement('button'); cancelBtn.className='cancel-btn small'; cancelBtn.textContent='Cancel';
-        cancelBtn.addEventListener('click', async ()=>{ const qty=i.quantity; if(stock[i.item]!==undefined && stock[i.item]!==Infinity) stock[i.item]+=qty; sub.items=sub.items.filter(x=>x.id!==i.id); sub.totalPrice=sub.items.reduce((s,x)=>s+x.price*x.quantity,0); if(sub.items.length===0) tableOrder.subOrders=tableOrder.subOrders.filter(x=>x.personID!==sub.personID); await saveStockToFirebase(); await saveTablesToFirebase(); renderTables(); });
-        const itemControls=document.createElement('div'); itemControls.className='person-actions';
-        itemControls.appendChild(serveBtn); itemControls.appendChild(cancelBtn);
-        itBox.appendChild(itemControls); pBox.appendChild(itBox);
+      // Items
+      sub.items.forEach(it=>{
+        const itemDiv = document.createElement('div');
+        itemDiv.className='item-box '+(it.status==='pending'?'pending':'served');
+        itemDiv.innerHTML = `<div><strong>${it.item} x${it.quantity}</strong><div style="font-size:13px;color:#555">[${it.status}]</div></div>
+          <div style="text-align:right"><div style="font-weight:700">${it.price*it.quantity} mts</div>
+          <div style="margin-top:6px">${it.status==='pending'?'<button class="served-btn small">Served</button>':''}</div></div>`;
+
+        if(it.status==='pending'){
+          itemDiv.querySelector('.served-btn').addEventListener('click', async ()=>{
+            it.status='served';
+            await saveTablesToFirebase();
+          });
+        }
+
+        p.appendChild(itemDiv);
       });
 
-      const payButton=document.createElement('button'); payButton.className='add-btn'; payButton.textContent='Pay';
-      payButton.addEventListener('click', ()=>{ openPaymentModal(tableOrder.id,sub.personID); });
-      pBox.appendChild(payButton); box.appendChild(pBox);
+      box.appendChild(p);
     });
+
     tablesContainer.appendChild(box);
   });
 }
 
-function openPaymentModal(tableID, personID){
-  const sub=tables[tableID].subOrders.find(s=>s.personID===personID);
-  if(!sub) return;
-  modalContent.innerHTML=`<strong>${sub.description}</strong> — ${sub.totalPrice} mts`;
+/* -------------------------
+   Payment modal
+------------------------- */
+function openPaymentModal(tableID){
+  const tableOrder = tables[tableID];
+  paymentContent.innerHTML = '';
+  tableOrder.subOrders.forEach((sub,idx)=>{
+    const div = document.createElement('div');
+    div.style.border='1px solid #ccc'; div.style.padding='8px'; div.style.margin='6px 0';
+    div.innerHTML = `<strong>${sub.description} - ${sub.totalPrice} mts</strong>
+      <select class="payment-method">
+        <option value="" disabled selected>Payment method</option>
+        <option value="Mobile">Mobile</option>
+        <option value="Card">Card</option>
+        <option value="Cash">Cash</option>
+      </select>
+      <button class="paid-btn small">Paid</button>`;
+    const paidBtn = div.querySelector('.paid-btn');
+    const methodSelect = div.querySelector('.payment-method');
+    paidBtn.addEventListener('click', async ()=>{
+      if(!methodSelect.value){ alert('Choose payment method'); return; }
+      sub.paymentStatus='paid';
+      sub.paymentMethod = methodSelect.value;
+      await saveTablesToFirebase();
+      renderTables();
+    });
+    paymentContent.appendChild(div);
+  });
   paymentModal.style.display='flex';
-  payBtn.onclick=async ()=>{
-    const method=paymentMethodSelect.value; if(!method){ alert('Choose payment method'); return; }
-    sub.paid=true; sub.paymentMethod=method; sub.paymentTime=new Date().toISOString();
-    await saveTablesToFirebase();
-    paymentModal.style.display='none'; paymentMethodSelect.value='';
-    renderTables();
-  };
 }
 
-closeModalBtn.addEventListener('click', ()=>{ paymentModal.style.display='none'; });
-</script>
+closeModal.addEventListener('click', ()=> paymentModal.style.display='none');
+window.addEventListener('click', e=>{ if(e.target===paymentModal) paymentModal.style.display='none'; });
 
+</script>
 </body>
 </html>
