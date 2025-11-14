@@ -170,31 +170,31 @@ const tablesContainer = document.getElementById('tablesContainer');
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
 
-/* Updated menu items */
+/* Updated Menu Items in mts */
 const menuItems = {
   food: [
     {item:'Salsicha',price:200},{item:'Sasicha c/ Queijo',price:300},{item:'Worse',price:200},{item:'Babalaza',price:300},
     {item:'Rabada',price:200},{item:'Língua',price:200},{item:'Brisket',price:400},{item:'Figado de vaca',price:300},
     {item:'Cordornizes',price:350},{item:'Moela',price:300},{item:'Sopa de legumes',price:270},{item:'Sopa de Feijão',price:220},
     {item:'Salgadinhos (dose)',price:100},{item:'Pizza Grande',price:600},{item:'Pizza Pequena',price:350},{item:'Picanha',price:500},
-    {item:'T-Bone',price:450},{item:'Lombo',price:300},{item:'Bife',price:600},{item:'Bitoque',price:500},{item:'Prego Completo',price:250},
-    {item:'Prego no Prato',price:300},{item:'Lasanha',price:600},{item:'Pernil',price:350},{item:'Carne de Porco',price:350},
-    {item:'Costuleta',price:500},{item:'Frango Inteiro',price:850},{item:'Meio Frango',price:700},{item:'Dose de Frango',price:350},
-    {item:'Peixe c/m legumes',price:600}
+    {item:'T-Bone',price:450},{item:'Lombo',price:300},{item:'Bife',price:600},{item:'Bitoque',price:500},
+    {item:'Prego Completo',price:250},{item:'Prego no Prato',price:300},{item:'Lasanha',price:600},{item:'Pernil',price:350},
+    {item:'Carne de Porco',price:350},{item:'Costuleta',price:500},{item:'Frango Inteiro',price:850},{item:'Meio Frango',price:700},
+    {item:'Dose de Frango',price:350},{item:'Peixe c/m legumes',price:600}
   ],
   drink: [
     {item:'2M Grande',price:70},{item:'Savana',price:80},{item:'Heineken',price:80},{item:'Heineken Grande',price:70},
     {item:'Impala',price:60},{item:'Txilar a lata',price:60},{item:'Txilar garrafa',price:70},{item:'Corona',price:100},
     {item:'Brutal a garafa',price:80},{item:'Brutal a lata',price:100},{item:'Água Tônica',price:70},{item:'May fair',price:90},
     {item:'Flying Fish',price:80},{item:'Lite',price:80},{item:'Black Crown',price:80},{item:'Stella',price:100},
-    {item:'Bernina',price:90},{item:'Whisky Jameson',price:150},{item:'Amarula',price:150},{item:'Paul Cluver Branco',price:850},
-    {item:'Roodberg Black',price:150},{item:'Vinho da Casa',price:900},{item:'Refresco 2L',price:200},{item:'Refresco 1L',price:110},
+    {item:'Bernina',price:90},{item:'Whisky Jameson',price:150},{item:'Amarula',price:1250},{item:'Paul Cluver Branco',price:150},
+    {item:'Roodberg Black',price:850},{item:'Vinho da Casa',price:900},{item:'Refresco 2L',price:200},{item:'Refresco 1L',price:110},
     {item:'Refresco a lata',price:70},{item:'Sumo compal',price:70},{item:'Sumo compal 1L',price:70},{item:'Chá Simples',price:140},
-    {item:'Extra',price:50} // optional extra for last 50mts
+    {item:'Água',price:50}
   ]
 };
 
-let tables = {}; // { tableID: tableObject }
+let tables = {}; // { uniqueTableID: tableObject }
 
 /* Type -> Items dropdown */
 typeSelect.addEventListener('change',()=>{
@@ -203,12 +203,12 @@ typeSelect.addEventListener('change',()=>{
   menuItems[type].forEach(menuItem=>{
     const option=document.createElement('option');
     option.value=menuItem.item;
-    option.textContent=`${menuItem.item} (${menuItem.price}mts)`;
+    option.textContent=`${menuItem.item} (${menuItem.price} mts)`;
     itemSelect.appendChild(option);
   });
 });
 
-/* Add Item, save, and render */
+/* Add Item */
 document.getElementById('addItemBtn').addEventListener('click', async ()=>{
   const tableNum = document.getElementById('tableSelect').value;
   const type = typeSelect.value;
@@ -217,28 +217,41 @@ document.getElementById('addItemBtn').addEventListener('click', async ()=>{
   if(!tableNum||!type||!itemName||quantity<1){alert('Select table, type, item, quantity'); return;}
 
   const menuItem = menuItems[type].find(m=>m.item===itemName);
-  const tableID = `TABLE-${tableNum}-${Date.now()}`; // unique table ID
-  // Find open table with same number
+  
+  // Unique table ID allows reopening same table number
+  const tableID = `TABLE-${tableNum}-${new Date().getTime()}`;
+
+  // Check if there’s already an opened table with the same number
   let existingTable = Object.values(tables).find(t=>t.table==tableNum && t.tableStatus==='opened');
-  if(existingTable){ existingTable.items.push({
-    item: menuItem.item,
-    price: menuItem.price,
-    quantity,
-    status: 'pending',
-    time: new Date().toISOString(),
-    isNew: true
-  });
+
+  if(existingTable){
+    existingTable.items.push({
+      item: menuItem.item,
+      price: menuItem.price,
+      quantity,
+      status: 'pending',
+      time: new Date().toISOString(),
+      isNew: true
+    });
     existingTable.totalPrice = existingTable.items.reduce((sum,i)=>sum+i.price*i.quantity,0);
   } else {
     tables[tableID] = {
       id: tableID,
       table: tableNum,
-      items:[{ item: menuItem.item, price: menuItem.price, quantity, status:'pending', time:new Date().toISOString(), isNew:true }],
+      items:[{
+        item: menuItem.item,
+        price: menuItem.price,
+        quantity,
+        status: 'pending',
+        time: new Date().toISOString(),
+        isNew: true
+      }],
       totalPrice: menuItem.price*quantity,
       tableStatus:'opened',
-      time:new Date().toISOString()
+      time: new Date().toISOString()
     };
   }
+
   renderTables();
   await saveTablesToFirebase();
 });
@@ -249,10 +262,10 @@ async function saveTablesToFirebase(){
   await setDoc(tablesDocRef,{tables});
 }
 
-/* Fetch tables */
+/* Fetch tables directly from server to avoid stale data */
 async function fetchTables(){
   const tablesDocRef = doc(db,'posData','tables');
-  const snapshot = await getDoc(tablesDocRef);
+  const snapshot = await getDoc(tablesDocRef, { source: 'server' });
   if(snapshot.exists()){
     tables = snapshot.data().tables || {};
     renderTables();
@@ -264,11 +277,11 @@ function renderTables(){
   tablesContainer.innerHTML='';
   Object.values(tables)
     .filter(t => t.tableStatus==='opened')
-    .sort((a,b)=>new Date(b.time)-new Date(a.time))
+    .sort((a,b)=>new Date(b.time) - new Date(a.time))
     .forEach(tableOrder=>{
       const tableBox=document.createElement('div');
       tableBox.className='table-box';
-      tableBox.innerHTML=`<h3>Table ${tableOrder.table}</h3><div class="table-total">Total: ${tableOrder.totalPrice}mts</div>`;
+      tableBox.innerHTML=`<h3>Table ${tableOrder.table}</h3><div class="table-total">Total: ${tableOrder.totalPrice} mts</div>`;
 
       tableOrder.items.forEach(item=>{
         const itemDiv=document.createElement('div');
@@ -278,7 +291,7 @@ function renderTables(){
           <div class="item-info">
             <strong>${item.item} x${item.quantity}</strong>
             <span>[${item.status}]</span>
-            <span>${item.price*item.quantity}mts</span>
+            <span>${item.price*item.quantity} mts</span>
           </div>
           <div class="item-buttons">
             ${item.status==='pending'?`<button class="served-btn">Served</button>`:''}
@@ -326,4 +339,3 @@ fetchTables();
 </script>
 </body>
 </html>
-
