@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stylish POS System</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f4f4;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.order-box {
+  background: #0062ca;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  width: 350px;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.order-box h2 { text-align: center; margin-bottom: 20px; }
+
+select, input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+  outline: none;
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-btn {
+  width: 100%;
+  background: #28a745;
+  color: #fff;
+  font-weight: bold;
+}
+
+.add-btn:hover { background: #218838; }
+
+.tables-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  width: 100%;
+}
+
+.table-box {
+  background: #fff;
+  color: #333;
+  width: 300px;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  max-height: 400px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.table-box h3 { text-align: center; margin-bottom: 10px; }
+
+.table-total { font-weight: bold; text-align: right; margin-bottom: 10px; }
+
+.item-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 10px;
+  padding: 8px;
+  margin: 5px 0;
+  transition: transform 0.2s;
+}
+
+.pending-order { background-color: #fff3cd; animation: pulsePending 2s infinite; }
+.served-order { background-color: #d4edda; }
+
+.item-info { display: flex; flex-direction: column; gap: 2px; }
+.item-buttons button { margin-left: 5px; font-size: 14px; border-radius: 8px; }
+.served-btn { background: #28a745; color: #fff; }
+.cancel-btn { background: #dc3545; color: #fff; }
+.close-btn { background: #6c757d; color: #fff; font-weight: bold; width: 100%; margin-top: 10px; }
+
+@keyframes glow {
+  0% { box-shadow: 0 0 5px #28a745; }
+  50% { box-shadow: 0 0 15px #28a745; }
+  100% { box-shadow: 0 0 5px #28a745; }
+}
+
+@keyframes pulsePending {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.item-box.new-order { animation: glow 1s ease-in-out; }
+
+@media (max-width: 768px) {
+  .order-box, .table-box { width: 90%; }
+  .tables-container { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="order-box">
+<h2><i class="fas fa-utensils"></i> Take Order</h2>
+<select id="tableSelect">
+  <option value="" disabled selected>Select Table</option>
+  <script>for(let i=1;i<=13;i++){document.write(`<option value="${i}">${i}</option>`);}</script>
+</select>
+
+<select id="typeSelect">
+  <option value="" disabled selected>Select Type</option>
+  <option value="food">Food</option>
+  <option value="drink">Drink</option>
+</select>
+
+<select id="itemSelect">
+  <option value="" disabled selected>Select Item</option>
+</select>
+
+<input type="number" id="quantity" placeholder="Quantity" min="1" value="1">
+<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
+</div>
+
+<div id="tablesContainer" class="tables-container"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+const orders = [];
+const closedTables = [];
+
+const typeSelect = document.getElementById('typeSelect');
+const itemSelect = document.getElementById('itemSelect');
+const tablesContainer = document.getElementById('tablesContainer');
+
+const menuItems = {
+  food: [ {item:'Burger',price:5},{item:'Pizza',price:8},{item:'Salad',price:4},{item:'Pasta',price:7} ],
+  drink: [ {item:'Water',price:1},{item:'Soda',price:2},{item:'Juice',price:3},{item:'Coffee',price:2} ]
+};
+
+typeSelect.addEventListener('change',()=>{
+  const type=typeSelect.value;
+  itemSelect.innerHTML='<option value="" disabled selected>Select Item</option>';
+  menuItems[type].forEach(menuItem=>{
+    const option=document.createElement('option');
+    option.value=menuItem.item;
+    option.textContent=`${menuItem.item} ($${menuItem.price})`;
+    itemSelect.appendChild(option);
+  });
+});
+
+document.getElementById('addItemBtn').addEventListener('click',()=>{
+  const table=document.getElementById('tableSelect').value;
+  const type=typeSelect.value;
+  const itemName=itemSelect.value;
+  const quantity=parseInt(document.getElementById('quantity').value);
+
+  if(!table||!type||!itemName||quantity<1){alert('Select table, type, item, quantity'); return;}
+
+  const menuItem=menuItems[type].find(m=>m.item===itemName);
+
+  let tableOrder=orders.find(o=>o.table===table);
+  if(!tableOrder){
+    tableOrder={
+      id:`TABLE-${table}-${Date.now()}`,
+      table:table,
+      items:[],
+      totalPrice:0,
+      time:new Date().toLocaleString()
+    };
+    orders.push(tableOrder);
+  }
+
+  tableOrder.items.push({
+    item:menuItem.item,
+    price:menuItem.price,
+    quantity,
+    status:'pending',
+    time:new Date().toISOString(),
+    isNew:true
+  });
+
+  tableOrder.items.sort((a,b)=>new Date(b.time) - new Date(a.time));
+  tableOrder.totalPrice=tableOrder.items.reduce((sum,i)=>sum+i.price*i.quantity,0);
+
+  renderTables();
+  logOrders();
+});
+
+function renderTables(){
+  tablesContainer.innerHTML='';
+  const sortedOrders = [...orders].sort((a,b)=>new Date(b.time) - new Date(a.time));
+
+  sortedOrders.forEach(tableOrder=>{
+    const tableBox=document.createElement('div');
+    tableBox.className='table-box';
+    tableBox.innerHTML=`<h3>Table ${tableOrder.table}</h3><div class="table-total">Total: $${tableOrder.totalPrice}</div>`;
+
+    tableOrder.items.forEach((item,index)=>{
+      const itemDiv=document.createElement('div');
+      itemDiv.className='item-box';
+      itemDiv.classList.add(item.status==='pending'?'pending-order':'served-order');
+      if(item.isNew) {
+        itemDiv.classList.add('new-order');
+        setTimeout(()=>{item.isNew=false; renderTables();}, 1000);
+      }
+
+      itemDiv.innerHTML=`
+        <div class="item-info">
+          <strong>${item.item} x${item.quantity}</strong>
+          <span class="${item.status==='pending'?'status-pending':'status-served'}">[${item.status}]</span>
+          <span>$${item.price*item.quantity}</span>
+        </div>
+        <div class="item-buttons">
+          ${item.status==='pending'?`<button class="served-btn"><i class="fas fa-check"></i> Served</button>`:''}
+          <button class="cancel-btn"><i class="fas fa-times"></i> Cancel</button>
+        </div>
+      `;
+
+      if(item.status==='pending'){
+        itemDiv.querySelector('.served-btn').addEventListener('click',()=>{
+          item.status='served';
+          renderTables();
+          logOrders();
+        });
+      }
+
+      itemDiv.querySelector('.cancel-btn').addEventListener('click',()=>{
+        const idx = tableOrder.items.indexOf(item);
+        if(idx !== -1) tableOrder.items.splice(idx,1);
+        tableOrder.totalPrice=tableOrder.items.reduce((sum,i)=>sum+i.price*i.quantity,0);
+        if(tableOrder.items.length===0){
+          const index=orders.indexOf(tableOrder);
+          if(index!==-1) orders.splice(index,1);
+        }
+        renderTables();
+        logOrders();
+      });
+
+      tableBox.appendChild(itemDiv);
+    });
+
+    if(tableBox.lastChild){ tableBox.lastChild.scrollIntoView({behavior:"smooth"}); }
+
+    const closeBtn=document.createElement('button');
+    closeBtn.textContent='Close Table';
+    closeBtn.className='close-btn';
+    closeBtn.addEventListener('click',()=>{
+      if(tableOrder.items.some(i=>i.status==='pending')){
+        alert('Cannot close table: all items must be served!');
+        return;
+      }
+      closedTables.push({...tableOrder, closingTime:new Date().toLocaleString()});
+      const idx=orders.indexOf(tableOrder);
+      if(idx!==-1) orders.splice(idx,1);
+      renderTables();
+      logOrders();
+    });
+
+    tableBox.appendChild(closeBtn);
+    tablesContainer.appendChild(tableBox);
+  });
+}
+
+function logOrders(){
+  console.clear();
+  console.log('Open Tables:', JSON.parse(JSON.stringify(orders)));
+  console.log('Closed Tables:', JSON.parse(JSON.stringify(closedTables)));
+}
+});
+</script>
+</body>
+</html>
