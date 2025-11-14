@@ -148,7 +148,7 @@ button {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /* Firebase config */
 const firebaseConfig = {
@@ -170,27 +170,26 @@ const tablesContainer = document.getElementById('tablesContainer');
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
 
-/* Updated Menu Items in mts */
+/* Menu items updated with MZN */
 const menuItems = {
-  food: [
+  food:[
     {item:'Salsicha',price:200},{item:'Sasicha c/ Queijo',price:300},{item:'Worse',price:200},{item:'Babalaza',price:300},
     {item:'Rabada',price:200},{item:'Língua',price:200},{item:'Brisket',price:400},{item:'Figado de vaca',price:300},
     {item:'Cordornizes',price:350},{item:'Moela',price:300},{item:'Sopa de legumes',price:270},{item:'Sopa de Feijão',price:220},
     {item:'Salgadinhos (dose)',price:100},{item:'Pizza Grande',price:600},{item:'Pizza Pequena',price:350},{item:'Picanha',price:500},
-    {item:'T-Bone',price:450},{item:'Lombo',price:300},{item:'Bife',price:600},{item:'Bitoque',price:500},
-    {item:'Prego Completo',price:250},{item:'Prego no Prato',price:300},{item:'Lasanha',price:600},{item:'Pernil',price:350},
-    {item:'Carne de Porco',price:350},{item:'Costuleta',price:500},{item:'Frango Inteiro',price:850},{item:'Meio Frango',price:700},
-    {item:'Dose de Frango',price:350},{item:'Peixe c/m legumes',price:600}
+    {item:'T-Bone',price:450},{item:'Lombo',price:300},{item:'Bife',price:600},{item:'Bitoque',price:500},{item:'Prego Completo',price:250},
+    {item:'Prego no Prato',price:300},{item:'Lasanha',price:600},{item:'Pernil',price:350},{item:'Carne de Porco',price:350},
+    {item:'Costuleta',price:500},{item:'Frango Inteiro',price:850},{item:'Meio Frango',price:700},{item:'Dose de Frango',price:350},
+    {item:'Peixe c/m legumes',price:600}
   ],
-  drink: [
+  drink:[
     {item:'2M Grande',price:70},{item:'Savana',price:80},{item:'Heineken',price:80},{item:'Heineken Grande',price:70},
     {item:'Impala',price:60},{item:'Txilar a lata',price:60},{item:'Txilar garrafa',price:70},{item:'Corona',price:100},
     {item:'Brutal a garafa',price:80},{item:'Brutal a lata',price:100},{item:'Água Tônica',price:70},{item:'May fair',price:90},
     {item:'Flying Fish',price:80},{item:'Lite',price:80},{item:'Black Crown',price:80},{item:'Stella',price:100},
-    {item:'Bernina',price:90},{item:'Whisky Jameson',price:150},{item:'Amarula',price:1250},{item:'Paul Cluver Branco',price:150},
+    {item:'Bernina',price:90},{item:'Whisky Jameson',price:150},{item:'Amarula',price:850},{item:'Paul Cluver Branco',price:150},
     {item:'Roodberg Black',price:850},{item:'Vinho da Casa',price:900},{item:'Refresco 2L',price:200},{item:'Refresco 1L',price:110},
-    {item:'Refresco a lata',price:70},{item:'Sumo compal',price:70},{item:'Sumo compal 1L',price:70},{item:'Chá Simples',price:140},
-    {item:'Água',price:50}
+    {item:'Refresco a lata',price:70},{item:'Sumo compal',price:70},{item:'Sumo compal 1L',price:70},{item:'Chá Simples',price:50}
   ]
 };
 
@@ -218,12 +217,9 @@ document.getElementById('addItemBtn').addEventListener('click', async ()=>{
 
   const menuItem = menuItems[type].find(m=>m.item===itemName);
   
-  // Unique table ID allows reopening same table number
-  const tableID = `TABLE-${tableNum}-${new Date().getTime()}`;
-
-  // Check if there’s already an opened table with the same number
+  // Check for existing opened table
   let existingTable = Object.values(tables).find(t=>t.table==tableNum && t.tableStatus==='opened');
-
+  
   if(existingTable){
     existingTable.items.push({
       item: menuItem.item,
@@ -235,6 +231,7 @@ document.getElementById('addItemBtn').addEventListener('click', async ()=>{
     });
     existingTable.totalPrice = existingTable.items.reduce((sum,i)=>sum+i.price*i.quantity,0);
   } else {
+    const tableID = `TABLE-${tableNum}-${new Date().getTime()}`;
     tables[tableID] = {
       id: tableID,
       table: tableNum,
@@ -252,7 +249,6 @@ document.getElementById('addItemBtn').addEventListener('click', async ()=>{
     };
   }
 
-  renderTables();
   await saveTablesToFirebase();
 });
 
@@ -262,17 +258,19 @@ async function saveTablesToFirebase(){
   await setDoc(tablesDocRef,{tables});
 }
 
-/* Fetch tables directly from server to avoid stale data */
-async function fetchTables(){
-  const tablesDocRef = doc(db,'posData','tables');
-  const snapshot = await getDoc(tablesDocRef, { source: 'server' });
+/* Real-time listener */
+const tablesDocRef = doc(db,'posData','tables');
+onSnapshot(tablesDocRef, (snapshot)=>{
   if(snapshot.exists()){
     tables = snapshot.data().tables || {};
     renderTables();
+  } else {
+    tables = {};
+    renderTables();
   }
-}
+});
 
-/* Render only opened tables */
+/* Render opened tables */
 function renderTables(){
   tablesContainer.innerHTML='';
   Object.values(tables)
@@ -301,7 +299,6 @@ function renderTables(){
         if(item.status==='pending'){
           itemDiv.querySelector('.served-btn').addEventListener('click', async ()=>{
             item.status='served';
-            renderTables();
             await saveTablesToFirebase();
           });
         }
@@ -312,7 +309,6 @@ function renderTables(){
           if(tableOrder.items.length===0){
             tables[tableOrder.id].tableStatus='closed';
           }
-          renderTables();
           await saveTablesToFirebase();
         });
         tableBox.appendChild(itemDiv);
@@ -324,17 +320,11 @@ function renderTables(){
       closeBtn.addEventListener('click', async ()=>{
         if(tableOrder.items.some(i=>i.status==='pending')){ alert('All items must be served!'); return; }
         tables[tableOrder.id].tableStatus='closed';
-        renderTables();
         await saveTablesToFirebase();
       });
       tableBox.appendChild(closeBtn);
       tablesContainer.appendChild(tableBox);
     });
-}
-
-/* Initial fetch */
-fetchTables();
-
 });
 </script>
 </body>
