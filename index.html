@@ -14,7 +14,6 @@ body {
   flex-direction: column;
   align-items: center;
 }
-
 .order-box {
   background: #0062ca;
   padding: 25px;
@@ -24,9 +23,7 @@ body {
   color: #fff;
   margin-bottom: 20px;
 }
-
 .order-box h2 { text-align: center; margin-bottom: 20px; }
-
 select, input {
   width: 100%;
   padding: 12px;
@@ -36,7 +33,6 @@ select, input {
   font-size: 16px;
   outline: none;
 }
-
 button {
   padding: 10px 15px;
   border: none;
@@ -48,16 +44,13 @@ button {
   align-items: center;
   justify-content: center;
 }
-
 .add-btn {
   width: 100%;
   background: #28a745;
   color: #fff;
   font-weight: bold;
 }
-
 .add-btn:hover { background: #218838; }
-
 .tables-container {
   display: flex;
   flex-wrap: wrap;
@@ -65,7 +58,6 @@ button {
   gap: 15px;
   width: 100%;
 }
-
 .table-box {
   background: #fff;
   color: #333;
@@ -77,11 +69,8 @@ button {
   overflow-y: auto;
   position: relative;
 }
-
 .table-box h3 { text-align: center; margin-bottom: 10px; }
-
 .table-total { font-weight: bold; text-align: right; margin-bottom: 10px; }
-
 .item-box {
   display: flex;
   justify-content: space-between;
@@ -91,30 +80,16 @@ button {
   margin: 5px 0;
   transition: transform 0.2s;
 }
-
 .pending-order { background-color: #fff3cd; animation: pulsePending 2s infinite; }
 .served-order { background-color: #d4edda; }
-
 .item-info { display: flex; flex-direction: column; gap: 2px; }
 .item-buttons button { margin-left: 5px; font-size: 14px; border-radius: 8px; }
 .served-btn { background: #28a745; color: #fff; }
 .cancel-btn { background: #dc3545; color: #fff; }
 .close-btn { background: #6c757d; color: #fff; font-weight: bold; width: 100%; margin-top: 10px; }
-
-@keyframes glow {
-  0% { box-shadow: 0 0 5px #28a745; }
-  50% { box-shadow: 0 0 15px #28a745; }
-  100% { box-shadow: 0 0 5px #28a745; }
-}
-
-@keyframes pulsePending {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.03); }
-  100% { transform: scale(1); }
-}
-
+@keyframes glow { 0% { box-shadow: 0 0 5px #28a745; } 50% { box-shadow: 0 0 15px #28a745; } 100% { box-shadow: 0 0 5px #28a745; } }
+@keyframes pulsePending { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
 .item-box.new-order { animation: glow 1s ease-in-out; }
-
 @media (max-width: 768px) {
   .order-box, .table-box { width: 90%; }
   .tables-container { flex-direction: column; align-items: center; }
@@ -148,7 +123,7 @@ button {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /* Firebase config */
 const firebaseConfig = {
@@ -198,17 +173,15 @@ document.getElementById('addItemBtn').addEventListener('click', async ()=>{
   if(!tableNum||!type||!itemName||quantity<1){alert('Select table, type, item, quantity'); return;}
 
   const menuItem = menuItems[type].find(m=>m.item===itemName);
-  const tableID = `TABLE-${tableNum}`;
-  if(!tables[tableID]){
-    tables[tableID] = {
-      id: tableID,
-      table: tableNum,
-      items: [],
-      totalPrice: 0,
-      tableStatus: 'opened',
-      time: new Date().toISOString()
-    };
-  }
+  const tableID = `TABLE-${tableNum}-${Date.now()}`; // unique ID every time
+  tables[tableID] = {
+    id: tableID,
+    table: tableNum,
+    items: [],
+    totalPrice: 0,
+    tableStatus: 'opened',
+    time: new Date().toISOString()
+  };
 
   tables[tableID].items.push({
     item: menuItem.item,
@@ -230,12 +203,12 @@ async function saveTablesToFirebase(){
   await setDoc(tablesDocRef,{tables});
 }
 
-/* Fetch tables */
-async function fetchTables(){
-  const tablesDocRef = doc(db,'posData','tables');
-  const snapshot = await getDoc(tablesDocRef);
+/* Real-time listener for tables */
+const tablesDocRef = doc(db,'posData','tables');
+onSnapshot(tablesDocRef, snapshot=>{
   if(snapshot.exists()){
     tables = snapshot.data().tables || {};
+    // convert time strings to Date objects and mark isNew false
     for(let key in tables){
       const t = tables[key];
       t.time = new Date(t.time);
@@ -243,7 +216,7 @@ async function fetchTables(){
     }
     renderTables();
   }
-}
+});
 
 /* Render only opened tables */
 function renderTables(){
@@ -304,11 +277,8 @@ function renderTables(){
       tablesContainer.appendChild(tableBox);
     });
 }
-
-/* Initial fetch */
-fetchTables();
-
 });
 </script>
 </body>
 </html>
+
