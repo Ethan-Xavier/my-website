@@ -103,19 +103,18 @@ const closeModalBtn = document.getElementById('closeModalBtn');
 
 let posData = { openTables: [], closedTables: [] };
 
-// Menu items
 const menuItems = {
   food: [{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
   drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
 };
 
-// Initialize tables 1-13
+// Init table options
 for(let i=1;i<=13;i++){
   const opt=document.createElement('option'); opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
 }
 
-// Update item list when type changes
+// Update items when type changes
 typeSelect.addEventListener('change',()=>{
   itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
   menuItems[typeSelect.value].forEach(i=>{
@@ -126,16 +125,14 @@ typeSelect.addEventListener('change',()=>{
   });
 });
 
-// Save to Firestore
 async function savePOS(){ await setDoc(posDocRef, posData); }
 
-// Load data
 onSnapshot(posDocRef, snap=>{
   posData = snap.data()||{openTables:[],closedTables:[]};
   renderTables();
 });
 
-// Add item
+// Add order
 addItemBtn.addEventListener('click', async()=>{
   const tableNum = tableSelect.value;
   const desc = (descriptionInput.value||'Customer').trim();
@@ -167,58 +164,44 @@ addItemBtn.addEventListener('click', async()=>{
   quantityInput.value=1; descriptionInput.value='';
 });
 
-// Render tables with indicators
+// Render tables
 function renderTables(){
   tablesContainer.innerHTML='';
   posData.openTables.forEach(table=>{
     const box=document.createElement('div'); box.className='table-box';
 
-    // Merged table indicator
-    if(table.merged){
-      const mergedLabel = document.createElement('div');
-      mergedLabel.textContent = "Merged Table";
-      mergedLabel.style.color = "#007bff";
-      mergedLabel.style.fontWeight = "700";
-      box.appendChild(mergedLabel);
-    }
-
+    // Header
     const header=document.createElement('div');
     header.innerHTML=`<strong>Table ${table.tableNumber}</strong> - Total: ${table.tableTotal} mts`;
+    if(table.merged){ header.innerHTML += ' <span style="color:#007bff;font-weight:700">Merged</span>'; }
     box.appendChild(header);
 
     table.people.forEach(person=>{
       const personDiv=document.createElement('div'); personDiv.className='person-box';
       const title=document.createElement('div');
       title.innerHTML=`<strong>${person.description}</strong> - ${person.totalPrice} mts`;
-
-      // Split bill indicator
-      if(person.payment){ 
-        const splitTag = document.createElement('span');
-        splitTag.textContent = "Split Bill";
-        splitTag.style.color="#28a745";
-        splitTag.style.fontWeight="600";
-        splitTag.style.marginLeft="6px";
-        title.appendChild(splitTag);
-      }
-
+      if(person.payment){ title.innerHTML += ' <span style="color:#28a745;font-weight:600">Paid</span>'; }
       personDiv.appendChild(title);
 
-      // Orders
       person.orders.forEach(order=>{
         const orderDiv=document.createElement('div'); orderDiv.className='item-box';
         orderDiv.textContent = `${order.item} x${order.quantity} - ${order.price*order.quantity} mts`;
+
         if(order.status!=='served'){
           const serveBtn=document.createElement('button'); serveBtn.className='serve-btn'; serveBtn.textContent='Serve';
           serveBtn.onclick=async()=>{ order.status='served'; await savePOS(); };
           orderDiv.appendChild(serveBtn);
         }
+
         const cancelBtn=document.createElement('button'); cancelBtn.className='cancel-btn'; cancelBtn.textContent='Cancel';
-        cancelBtn.onclick=async()=>{
+        cancelBtn.onclick = async () => {
           person.orders = person.orders.filter(o=>o!==order);
           person.totalPrice = person.orders.reduce((s,o)=>s+o.price*o.quantity,0);
+          if(person.orders.length===0){ table.people = table.people.filter(p=>p!==person); }
           table.tableTotal = table.people.reduce((s,p)=>s+p.totalPrice,0);
           await savePOS();
         };
+
         orderDiv.appendChild(cancelBtn);
         personDiv.appendChild(orderDiv);
       });
@@ -231,11 +214,11 @@ function renderTables(){
       }
 
       // Move person
-      const moveBtn = document.createElement('button'); moveBtn.textContent = 'Move Person';
-      moveBtn.onclick = async ()=>{
+      const moveBtn=document.createElement('button'); moveBtn.textContent='Move Person';
+      moveBtn.onclick=async()=>{
         const newTableNum = prompt("Enter target table number:");
         if(!newTableNum) return;
-        let targetTable = posData.openTables.find(t => t.tableNumber == newTableNum);
+        let targetTable = posData.openTables.find(t => t.tableNumber==newTableNum);
         if(!targetTable){
           targetTable = {id:'TABLE-'+Date.now(), tableNumber:newTableNum, timeOpened:new Date().toISOString(), timeClosed:null, people:[], tableTotal:0, merged:false};
           posData.openTables.push(targetTable);
@@ -248,12 +231,13 @@ function renderTables(){
       };
       personDiv.appendChild(moveBtn);
 
-      box.appendChild(personDiv);
+      personDiv && box.appendChild(personDiv);
     });
 
     // Table controls
     const controlsDiv = document.createElement('div'); controlsDiv.className='table-controls';
-    // Merge
+
+    // Merge tables
     if(!table.merged && posData.openTables.length > 1){
       const mergeBtn = document.createElement('button'); mergeBtn.textContent='Merge Table';
       mergeBtn.onclick=async()=>{
@@ -268,12 +252,13 @@ function renderTables(){
       };
       controlsDiv.appendChild(mergeBtn);
     }
-    // Split
+
+    // Split merged table
     if(table.merged && table.people.length > 1){
       const splitBtn = document.createElement('button'); splitBtn.textContent='Split Table';
       splitBtn.onclick=async()=>{
-        let nextTableNum = 1;
         table.people.forEach(person=>{
+          let nextTableNum = 1;
           while(posData.openTables.some(t=>t.tableNumber==nextTableNum)) nextTableNum++;
           const newTable = {id:'TABLE-'+Date.now()+'-'+person.id, tableNumber: nextTableNum, timeOpened: table.timeOpened, timeClosed:null, people:[person], tableTotal: person.totalPrice, merged:false};
           posData.openTables.push(newTable);
@@ -284,16 +269,28 @@ function renderTables(){
       controlsDiv.appendChild(splitBtn);
     }
 
+    // Merge bills within table
+    if(table.people.length > 1){
+      const mergeBillsBtn = document.createElement('button'); mergeBillsBtn.textContent='Merge Bills';
+      mergeBillsBtn.onclick=async()=>{
+        const mergedPerson = {id:'PERSON-'+Date.now(), description:'Merged', orders:[], totalPrice:0, payment:null};
+        table.people.forEach(p=>{
+          mergedPerson.orders = mergedPerson.orders.concat(p.orders);
+          mergedPerson.totalPrice += p.totalPrice;
+        });
+        table.people = [mergedPerson];
+        table.tableTotal = mergedPerson.totalPrice;
+        await savePOS();
+      };
+      controlsDiv.appendChild(mergeBillsBtn);
+    }
+
     // Move table
-    const moveTableBtn = document.createElement('button');
-    moveTableBtn.textContent = 'Move Table';
-    moveTableBtn.onclick = async()=>{
+    const moveTableBtn = document.createElement('button'); moveTableBtn.textContent='Move Table';
+    moveTableBtn.onclick=async()=>{
       const newTableNum = prompt("Enter new table number:");
       if(!newTableNum) return;
-      if(posData.openTables.some(t=>t.tableNumber == newTableNum)){
-        alert("Table number already exists");
-        return;
-      }
+      if(posData.openTables.some(t=>t.tableNumber == newTableNum)){ alert("Table exists"); return; }
       table.tableNumber = newTableNum;
       await savePOS();
     };
@@ -313,9 +310,7 @@ function showPayment(table, person){
     if(!method){ alert('Select payment method'); return; }
     person.orders.forEach(o=>{ o.paid=true; o.status='served'; });
     person.payment = {method, amount: person.totalPrice};
-    if(person.orders.every(o=>o.paid)){
-      table.people = table.people.filter(p=>p!==person);
-    }
+    if(person.orders.every(o=>o.paid)){ table.people = table.people.filter(p=>p!==person); }
     if(table.people.length===0){
       table.timeClosed=new Date().toISOString();
       posData.closedTables.push(table);
