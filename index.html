@@ -117,6 +117,7 @@ let mergedHistory={};
 
 const tablesDocRef=doc(db,'posData','tables');
 
+// Populate table options
 for(let i=1;i<=13;i++){
   const opt=document.createElement('option'); opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
@@ -200,6 +201,9 @@ function renderTables(){
     });
 }
 
+// ------------------
+// Table Controls
+// ------------------
 function renderTableControls(box,tableOrder){
   const controlsRow=document.createElement('div'); controlsRow.className='controls-row';
 
@@ -240,6 +244,9 @@ function renderTableControls(box,tableOrder){
   box.appendChild(controlsRow);
 }
 
+// ------------------
+// Sub-order Render
+// ------------------
 function renderSubOrder(box,tableOrder,sub,subIndex){
   const p=document.createElement('div'); p.className='person-box';
   const subTotal=sub.items.reduce((s,it)=>s+it.price*it.quantity,0);
@@ -326,7 +333,10 @@ function showPayment(tableOrder,subOrder){
     if(subOrder) subOrder.items.forEach(it=>{ it.paid=true; it.status='served'; });
     else tableOrder.subOrders.forEach(s=>s.items.forEach(it=>{ it.paid=true; it.status='served'; }));
 
-    if(tableOrder.subOrders.every(s=>s.items.every(it=>it.paid))) tableOrder.tableStatus='closed';
+    // Close table if all sub-orders paid
+    if(tableOrder.subOrders.every(s=>s.items.every(it=>it.paid))){
+      delete tables[tableOrder.id];
+    }
 
     await saveTables();
     paymentModal.style.display='none';
@@ -335,7 +345,7 @@ function showPayment(tableOrder,subOrder){
 
   closeModalBtn.onclick=()=>{ paymentModal.style.display='none'; };
 }
+
 </script>
 </body>
 </html>
-
