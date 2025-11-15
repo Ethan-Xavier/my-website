@@ -24,15 +24,16 @@ button{cursor:pointer;background:#28a745;color:#fff;font-weight:bold}
 <label>Table</label>
 <select id="tableSelect"><option value="" disabled selected>Select table</option></select>
 
+<label>Type</label>
+<select id="typeSelect">
+  <option value="" disabled selected>Select type</option>
+  <option value="food">Food</option>
+  <option value="drink">Drink</option>
+</select>
+
 <label>Item</label>
 <select id="itemSelect">
-<option value="" disabled selected>Select item</option>
-<option value="Pizza" data-price="500">Pizza - 500 mts</option>
-<option value="Pasta" data-price="300">Pasta - 300 mts</option>
-<option value="Burger" data-price="200">Burger - 200 mts</option>
-<option value="Soda" data-price="50">Soda - 50 mts</option>
-<option value="Juice" data-price="80">Juice - 80 mts</option>
-<option value="Water" data-price="30">Water - 30 mts</option>
+  <option value="" disabled selected>Select item</option>
 </select>
 
 <label>Quantity</label>
@@ -45,6 +46,7 @@ button{cursor:pointer;background:#28a745;color:#fff;font-weight:bold}
 
 <script>
 const tableSelect = document.getElementById('tableSelect');
+const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
 const quantityInput = document.getElementById('quantity');
 const addItemBtn = document.getElementById('addItemBtn');
@@ -57,6 +59,33 @@ for(let i=1;i<=13;i++){
   opt.value = i; opt.textContent = i;
   tableSelect.appendChild(opt);
 }
+
+// Menu items by type
+const menuItems = {
+  food: [
+    {item:'Pizza', price:500},
+    {item:'Pasta', price:300},
+    {item:'Burger', price:200}
+  ],
+  drink: [
+    {item:'Soda', price:50},
+    {item:'Juice', price:80},
+    {item:'Water', price:30}
+  ]
+};
+
+// Update item dropdown when type changes
+typeSelect.addEventListener('change', ()=>{
+  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
+  const type = typeSelect.value;
+  menuItems[type].forEach(i=>{
+    const opt = document.createElement('option');
+    opt.value = i.item;
+    opt.dataset.price = i.price;
+    opt.textContent = `${i.item} - ${i.price} mts`;
+    itemSelect.appendChild(opt);
+  });
+});
 
 // Add item to table
 addItemBtn.addEventListener('click', ()=>{
