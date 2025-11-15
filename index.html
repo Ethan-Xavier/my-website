@@ -117,13 +117,11 @@ let mergedHistory={};
 
 const tablesDocRef=doc(db,'posData','tables');
 
-// Populate table options
 for(let i=1;i<=13;i++){
   const opt=document.createElement('option'); opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
 }
 
-// Type → Items
 typeSelect.addEventListener('change',()=>{
   itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
   (menuItems[typeSelect.value]||[]).forEach(m=>{
@@ -133,7 +131,6 @@ typeSelect.addEventListener('change',()=>{
   priceSelect.style.display='none';
 });
 
-// Item → Price
 itemSelect.addEventListener('change',()=>{
   const menuItem=(menuItems[typeSelect.value]||[]).find(m=>m.item===itemSelect.value);
   if(menuItem && menuItem.price.length>1){
@@ -146,13 +143,10 @@ itemSelect.addEventListener('change',()=>{
   }else priceSelect.style.display='none';
 });
 
-// Save tables
 async function saveTables(){ await setDoc(tablesDocRef,{tables}); }
 
-// Real-time listener
 onSnapshot(tablesDocRef,snap=>{ tables=(snap.data()?.tables)||{}; renderTables(); });
 
-// Add item
 addItemBtn.addEventListener('click',async()=>{
   const tableNum=tableSelect.value;
   const type=typeSelect.value;
@@ -179,9 +173,6 @@ addItemBtn.addEventListener('click',async()=>{
   renderTables();
 });
 
-// ------------------
-// Render Tables
-// ------------------
 function renderTables(){
   tablesContainer.innerHTML='';
   Object.values(tables)
@@ -190,23 +181,20 @@ function renderTables(){
     .forEach(tableOrder=>{
       const box=document.createElement('div'); box.className='table-box';
 
-      const tableTotal = tableOrder.subOrders.reduce((s,sub)=>s+(sub.totalPrice||0),0);
+      const tableTotal = tableOrder.subOrders.reduce((s,sub)=>{
+        return s + sub.items.reduce((sum,it)=>sum + it.price*it.quantity,0);
+      },0);
+
       box.innerHTML=`<div class="table-head"><div><strong>Table ${tableOrder.table}</strong></div><div class="table-total">${tableTotal} mts</div></div>`;
 
       renderTableControls(box,tableOrder);
-
       tableOrder.subOrders.forEach((sub,subIndex)=>renderSubOrder(box,tableOrder,sub,subIndex));
-
       tablesContainer.appendChild(box);
     });
 }
 
-// ------------------
-// Table Controls
-// ------------------
 function renderTableControls(box,tableOrder){
   const controlsRow=document.createElement('div'); controlsRow.className='controls-row';
-
   const moveSelect=document.createElement('select'); moveSelect.className='move-select';
   moveSelect.innerHTML=`<option value="" disabled selected>Move table</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
   controlsRow.appendChild(moveSelect);
@@ -218,7 +206,6 @@ function renderTableControls(box,tableOrder){
     tableOrder.table=newTable; await saveTables(); renderTables();
   }); controlsRow.appendChild(moveBtn);
 
-  // Merge/Split
   if(tableOrder.subOrders.length>1&&!mergedHistory[tableOrder.id]){
     const mergeBtn=document.createElement('button'); mergeBtn.className='merge-btn small'; mergeBtn.textContent='Merge';
     mergeBtn.addEventListener('click',async()=>{
@@ -240,20 +227,15 @@ function renderTableControls(box,tableOrder){
   const payTableBtn=document.createElement('button'); payTableBtn.className='small'; payTableBtn.textContent='Pay Table';
   payTableBtn.addEventListener('click',()=>{ showPayment(tableOrder); });
   controlsRow.appendChild(payTableBtn);
-
   box.appendChild(controlsRow);
 }
 
-// ------------------
-// Sub-order Render
-// ------------------
 function renderSubOrder(box,tableOrder,sub,subIndex){
   const p=document.createElement('div'); p.className='person-box';
   const subTotal=sub.items.reduce((s,it)=>s+it.price*it.quantity,0);
   p.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${sub.description}</strong></div><div>${subTotal} mts</div></div>`;
 
   const controls=document.createElement('div'); controls.className='person-actions';
-
   const moveS=document.createElement('select'); moveS.className='move-select';
   moveS.innerHTML=`<option value="" disabled selected>Move sub-order</option>${[...Array(13)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}`;
   controls.appendChild(moveS);
@@ -295,11 +277,9 @@ function renderSubOrder(box,tableOrder,sub,subIndex){
         </div>
       </div>
     `;
-
     if(it.status==='pending'&&!it.paid){
       itemDiv.querySelector('.served-btn').addEventListener('click',async()=>{ it.status='served'; await saveTables(); renderTables(); });
     }
-
     itemDiv.querySelector('.cancel-btn').addEventListener('click',async()=>{
       if(disableCancel) return;
       sub.items.splice(itIndex,1);
@@ -308,16 +288,12 @@ function renderSubOrder(box,tableOrder,sub,subIndex){
       if(!tableOrder.subOrders.length) delete tables[tableOrder.id];
       await saveTables(); renderTables();
     });
-
     p.appendChild(itemDiv);
   });
 
   box.appendChild(p);
 }
 
-// ------------------
-// Payment
-// ------------------
 function showPayment(tableOrder,subOrder){
   paymentModal.style.display='flex';
   paymentContent.innerHTML='';
@@ -333,10 +309,7 @@ function showPayment(tableOrder,subOrder){
     if(subOrder) subOrder.items.forEach(it=>{ it.paid=true; it.status='served'; });
     else tableOrder.subOrders.forEach(s=>s.items.forEach(it=>{ it.paid=true; it.status='served'; }));
 
-    // Close table if all sub-orders paid
-    if(tableOrder.subOrders.every(s=>s.items.every(it=>it.paid))){
-      delete tables[tableOrder.id];
-    }
+    if(tableOrder.subOrders.every(s=>s.items.every(it=>it.paid))) delete tables[tableOrder.id];
 
     await saveTables();
     paymentModal.style.display='none';
@@ -345,7 +318,6 @@ function showPayment(tableOrder,subOrder){
 
   closeModalBtn.onclick=()=>{ paymentModal.style.display='none'; };
 }
-
 </script>
 </body>
 </html>
