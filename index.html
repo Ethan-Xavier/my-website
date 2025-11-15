@@ -3,76 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Waiter POS</title>
+<title>Ultra POS</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
-  :root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4;}
-  body{font-family:Segoe UI,sans-serif;background:var(--muted);padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px;}
-  .order-box{background:var(--primary);padding:18px;border-radius:12px;color:#fff;width:380px;box-shadow:0 8px 24px rgba(0,0,0,.12);}
-  .order-box h2{margin:0 0 10px;font-size:18px;text-align:center;}
-  input,select{width:100%;padding:9px;margin:6px 0;border-radius:8px;border:none;font-size:15px;outline:none;}
-  .add-btn{background:var(--green);color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none;}
-  .tables-container{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%;}
-  .table-box{background:#fff;padding:12px;border-radius:12px;width:340px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:640px;overflow:auto;}
-  .table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-  .table-total{font-weight:700;}
-  .person-box{background:#f0f0f0;padding:8px;border-radius:10px;margin-bottom:8px;}
-  .person-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
-  .item-box{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;margin:6px 0;background:#fff;}
-  .pending{background:#fff7e6;}
-  .served{background:#e9f7ee;}
-  button.small{padding:6px 8px;border-radius:8px;border:none;cursor:pointer;}
-  .served-btn{background:var(--green);color:#fff;}
-  .cancel-btn{background:#dc3545;color:#fff;}
-  .merge-btn{background:#007bff;color:#fff;}
-  .split-btn{background:#ffc107;color:#222;}
-  .move-select{padding:6px;border-radius:6px;}
-  .payment-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:center;z-index:100;display:none;}
-  .payment-box{background:#fff;padding:20px;border-radius:12px;width:350px;max-height:80%;overflow:auto;}
-  .payment-box h3{margin-top:0;}
-  .payment-method{margin:6px 0;}
+:root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4;}
+body{font-family:Segoe UI,sans-serif;background:var(--muted);margin:0;padding:20px;display:flex;flex-direction:column;align-items:center;gap:20px;}
+.header{font-size:24px;font-weight:700;margin-bottom:12px;}
+.controls, .tables-container{width:100%;max-width:1200px;display:flex;flex-wrap:wrap;gap:20px;justify-content:center;}
+.order-box, .table-box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:300px;}
+.order-box h2{margin-top:0;text-align:center;color:var(--primary);}
+.order-box select,input,button{width:100%;margin:6px 0;padding:8px;border-radius:8px;border:none;font-size:14px;outline:none;}
+button.add-btn{background:var(--green);color:#fff;font-weight:700;cursor:pointer;}
+.table-box h3{margin-top:0;color:var(--primary);}
+.person-box{background:#f0f0f0;padding:8px;border-radius:8px;margin-bottom:8px;}
+.item-box{display:flex;justify-content:space-between;align-items:center;padding:6px;border-radius:6px;margin:4px 0;background:#fff;}
+.item-box.pending{background:#fff7e6;}
+.item-box.served{background:#e9f7ee;}
+.item-box.paid{background:#d4edda;}
+.person-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+button.small{padding:4px 6px;border-radius:6px;border:none;cursor:pointer;}
+.payment-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:center;z-index:100;display:none;}
+.payment-box{background:#fff;padding:20px;border-radius:12px;width:350px;max-height:80%;overflow:auto;}
 </style>
 </head>
 <body>
 
+<div class="header">Ultra POS System</div>
+
 <div class="order-box">
-  <h2><i class="fas fa-utensils"></i> Waiter POS</h2>
+<h2><i class="fas fa-utensils"></i> New Order</h2>
 
-  <label>Table</label>
-  <select id="tableSelect"><option value="" disabled selected>Select table</option></select>
+<label>Table</label>
+<select id="tableSelect"><option value="" disabled selected>Select Table</option></select>
 
-  <label>Description (person / note)</label>
-  <input id="description" placeholder="e.g. John / Veggie" />
+<label>Sub-Order Description</label>
+<input id="description" placeholder="e.g. John / Veggie" />
 
-  <label>Type</label>
-  <select id="typeSelect"><option value="" disabled selected>Select type</option><option value="food">Food</option><option value="drink">Drink</option></select>
+<label>Type</label>
+<select id="typeSelect"><option value="" disabled selected>Select Type</option><option value="food">Food</option><option value="drink">Drink</option></select>
 
-  <label>Item</label>
-  <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
+<label>Item</label>
+<select id="itemSelect"><option value="" disabled selected>Select Item</option></select>
 
-  <label>Quantity</label>
-  <input id="quantity" type="number" min="1" value="1" />
+<label>Quantity</label>
+<input id="quantity" type="number" min="1" value="1" />
 
-  <button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
+<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
 </div>
 
 <div id="tablesContainer" class="tables-container"></div>
 
-<!-- Payment overlay -->
+<!-- Payment Overlay -->
 <div id="paymentOverlay" class="payment-overlay">
-  <div class="payment-box">
-    <h3>Payment</h3>
-    <div id="paymentContent"></div>
-    <label>Payment Method</label>
-    <select id="paymentMethod">
-      <option value="" disabled selected>Select method</option>
-      <option value="cash">Cash</option>
-      <option value="card">Card</option>
-      <option value="mobile">Mobile</option>
-    </select>
-    <button id="paidBtn" class="add-btn" style="margin-top:10px;">Paid</button>
-    <button id="closePayment" class="add-btn" style="background:#dc3545;margin-top:10px;">Close</button>
-  </div>
+<div class="payment-box">
+<h3>Payment</h3>
+<div id="paymentContent"></div>
+<label>Payment Method</label>
+<select id="paymentMethod">
+<option value="" disabled selected>Select Method</option>
+<option value="cash">Cash</option>
+<option value="card">Card</option>
+<option value="mobile">Mobile</option>
+</select>
+<button id="paidBtn" class="add-btn" style="margin-top:10px;">Paid</button>
+<button id="closePayment" class="add-btn" style="background:#dc3545;margin-top:10px;">Close</button>
+</div>
 </div>
 
 <script type="module">
@@ -91,7 +86,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// UI elements
+// UI Elements
 const tableSelect = document.getElementById('tableSelect');
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
@@ -105,75 +100,67 @@ const paymentMethod = document.getElementById('paymentMethod');
 const paidBtn = document.getElementById('paidBtn');
 const closePayment = document.getElementById('closePayment');
 
-// Menu items
+// Menu
 const menuItems = {
-  food: [{item:'Pizza',price:[500]}, {item:'Burger',price:[200]}],
-  drink: [{item:'Soda',price:[50]}, {item:'Beer',price:[100]}]
+food: [{item:'Pizza',price:500},{item:'Burger',price:200},{item:'Salad',price:150}],
+drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Beer',price:100}]
 };
 
 // Local state
 let tables = {};
 let mergedHistory = {};
-let currentPayment = null; // {tableID, subID}
+let currentPayment = null;
 
-// Firestore refs
+// Firestore reference
 const tablesDocRef = doc(db,'posData','tables');
 
-// Init tables in select
+// Init table options
 for(let i=1;i<=13;i++){
-  const opt = document.createElement('option');
+  const opt=document.createElement('option');
   opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
 }
 
-// Type -> item population
-typeSelect.addEventListener('change', ()=>{
-  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
-  const arr = menuItems[typeSelect.value]||[];
-  arr.forEach(m=>{
-    const opt = document.createElement('option');
-    opt.value=m.item; opt.textContent=m.item;
+// Type -> item
+typeSelect.addEventListener('change',()=>{
+  itemSelect.innerHTML='<option value="" disabled selected>Select Item</option>';
+  (menuItems[typeSelect.value]||[]).forEach(m=>{
+    const opt=document.createElement('option'); opt.value=m.item; opt.textContent=m.item;
     itemSelect.appendChild(opt);
   });
 });
 
-// Subscribe to tables
+// Firestore subscription
 onSnapshot(tablesDocRef,snap=>{
-  const data = snap.data();
-  tables = data?.tables || {};
+  tables = snap.data()?.tables || {};
   renderTables();
 });
 
-// Save tables
-async function saveTables(){
-  await setDoc(tablesDocRef,{tables});
-}
+// Save
+async function saveTables(){ await setDoc(tablesDocRef,{tables}); }
 
 // Add item
-addItemBtn.addEventListener('click', async ()=>{
+addItemBtn.addEventListener('click',async()=>{
   const tableNum = tableSelect.value;
   const type = typeSelect.value;
   const itemName = itemSelect.value;
   const qty = parseInt(quantityInput.value)||1;
   const desc = (descriptionInput.value||'Person').trim();
-  if(!tableNum||!type||!itemName||qty<1){alert('Complete fields'); return;}
+  if(!tableNum||!type||!itemName||qty<1){alert('Complete all fields');return;}
 
   let tableID = Object.keys(tables).find(id=>tables[id].table==tableNum&&tables[id].status!=='closed');
   if(!tableID){
-    tableID = 'TABLE-'+Date.now();
-    tables[tableID] = {id:tableID,table:tableNum,status:'opened',subOrders:[]};
+    tableID='TABLE-'+Date.now();
+    tables[tableID]={id:tableID,table:tableNum,status:'opened',subOrders:[]};
   }
   const tableOrder = tables[tableID];
 
   let sub = tableOrder.subOrders.find(s=>s.description===desc);
-  if(!sub){
-    sub={id:'SUB-'+Date.now(),description:desc,items:[],total:0};
-    tableOrder.subOrders.push(sub);
-  }
+  if(!sub){ sub={id:'SUB-'+Date.now(),description:desc,items:[],total:0}; tableOrder.subOrders.push(sub); }
 
-  const price = menuItems[type].find(m=>m.item===itemName)?.price[0]||0;
+  const price = menuItems[type].find(m=>m.item===itemName)?.price||0;
   sub.items.push({id:'ITEM-'+Date.now(),item:itemName,price,qty,status:'pending'});
-  sub.total = sub.items.reduce((s,i)=>s+s.price*i.qty,0);
+  sub.total=sub.items.reduce((s,i)=>s+s.price*i.qty,0);
 
   await saveTables();
   quantityInput.value='1'; descriptionInput.value='';
@@ -184,95 +171,32 @@ function renderTables(){
   tablesContainer.innerHTML='';
   Object.values(tables).forEach(table=>{
     if(table.status==='closed') return;
-    const box = document.createElement('div'); box.className='table-box';
-    const head = document.createElement('div'); head.className='table-head';
-    const title = document.createElement('div'); title.innerHTML='<strong>Table '+table.table+'</strong>';
-    const total = document.createElement('div'); total.className='table-total';
-    total.textContent = table.subOrders.reduce((s,sub)=>s+sub.total,0)+' mts';
-    head.appendChild(title); head.appendChild(total);
-    box.appendChild(head);
+    const box=document.createElement('div'); box.className='table-box';
+    const title=document.createElement('h3'); title.textContent='Table '+table.table; box.appendChild(title);
 
-    // Merge / Split buttons (table level)
-    const controls = document.createElement('div'); controls.className='person-actions';
-    if(table.subOrders.length>1 && !mergedHistory[table.id]){
-      const mergeBtn = document.createElement('button'); mergeBtn.textContent='Merge'; mergeBtn.className='merge-btn small';
-      mergeBtn.onclick=()=>mergeTable(table.id);
-      controls.appendChild(mergeBtn);
-    }
-    if(mergedHistory[table.id]){
-      const splitBtn = document.createElement('button'); splitBtn.textContent='Split'; splitBtn.className='split-btn small';
-      splitBtn.onclick=()=>splitTable(table.id);
-      controls.appendChild(splitBtn);
-    }
-    box.appendChild(controls);
-
-    // Render sub-orders
     table.subOrders.forEach(sub=>{
-      const pbox = document.createElement('div'); pbox.className='person-box';
-      const phead = document.createElement('div'); phead.style.display='flex'; phead.style.justifyContent='space-between';
-      const pname = document.createElement('div'); pname.innerHTML='<strong>'+sub.description+'</strong>';
-      const ptotal = document.createElement('div'); ptotal.textContent=sub.total+' mts';
-      phead.appendChild(pname); phead.appendChild(ptotal);
-      pbox.appendChild(phead);
-
-      // Sub-order actions: Serve / Cancel / Pay
-      const sactions = document.createElement('div'); sactions.className='person-actions';
+      const pbox=document.createElement('div'); pbox.className='person-box';
+      const pname=document.createElement('strong'); pname.textContent=sub.description; pbox.appendChild(pname);
       sub.items.forEach(item=>{
-        const itemDiv=document.createElement('div'); itemDiv.className='item-box '+(item.status==='pending'?'pending':'served');
-        const left=document.createElement('div'); left.style.minWidth='150px';
-        const name=document.createElement('div'); name.innerHTML='<strong>'+item.item+' x'+item.qty+'</strong>';
-        const status=document.createElement('div'); status.style.fontSize='13px'; status.style.color='#555'; status.textContent='['+item.status+']';
-        left.appendChild(name); left.appendChild(status);
-        const right=document.createElement('div'); right.style.textAlign='right';
-        const priceDiv=document.createElement('div'); priceDiv.style.fontWeight='700'; priceDiv.textContent=item.price*item.qty+' mts';
-        const buttons=document.createElement('div'); buttons.style.marginTop='6px';
-        if(item.status==='pending'){
-          const serveBtn=document.createElement('button'); serveBtn.className='served-btn small'; serveBtn.textContent='Serve';
-          serveBtn.onclick=async ()=>{ item.status='served'; await saveTables(); renderTables(); };
-          buttons.appendChild(serveBtn);
-        }
-        const cancelBtn=document.createElement('button'); cancelBtn.className='cancel-btn small'; cancelBtn.textContent='Cancel';
-        cancelBtn.onclick=async ()=>{
-          const idx=sub.items.findIndex(x=>x.id===item.id);
-          if(idx!==-1) sub.items.splice(idx,1);
-          sub.total=sub.items.reduce((s,i)=>s+s.price*i.qty,0);
-          await saveTables(); renderTables();
-        };
-        buttons.appendChild(cancelBtn);
-        right.appendChild(priceDiv); right.appendChild(buttons);
-        itemDiv.appendChild(left); itemDiv.appendChild(right);
-        pbox.appendChild(itemDiv);
+        const ibox=document.createElement('div'); ibox.className='item-box '+item.status;
+        ibox.textContent=item.item+' x'+item.qty+' - '+item.price*item.qty+' mts';
+        const serveBtn=document.createElement('button'); serveBtn.className='small'; serveBtn.textContent='Serve';
+        serveBtn.onclick=async()=>{ item.status='served'; await saveTables(); renderTables(); };
+        const cancelBtn=document.createElement('button'); cancelBtn.className='small'; cancelBtn.textContent='Cancel';
+        cancelBtn.onclick=async()=>{ sub.items=sub.items.filter(x=>x.id!==item.id); sub.total=sub.items.reduce((s,i)=>s+s.price*i.qty,0); await saveTables(); renderTables(); };
+        ibox.appendChild(serveBtn); ibox.appendChild(cancelBtn);
+        pbox.appendChild(ibox);
       });
-
-      // Pay button for sub-order
-      const payBtn = document.createElement('button'); payBtn.textContent='Pay'; payBtn.className='add-btn'; 
-      payBtn.onclick=()=>openPayment(table.id,sub.id);
-      sactions.appendChild(payBtn);
-      pbox.appendChild(sactions);
+      const payBtn=document.createElement('button'); payBtn.className='add-btn'; payBtn.textContent='Pay'; payBtn.onclick=()=>openPayment(table.id,sub.id);
+      pbox.appendChild(payBtn);
       box.appendChild(pbox);
     });
 
-    // Pay table button
-    const payTableBtn = document.createElement('button'); payTableBtn.textContent='Pay Table'; payTableBtn.className='add-btn';
+    const payTableBtn=document.createElement('button'); payTableBtn.className='add-btn'; payTableBtn.textContent='Pay Table';
     payTableBtn.onclick=()=>openPayment(table.id,null);
     box.appendChild(payTableBtn);
-
     tablesContainer.appendChild(box);
   });
-}
-
-// Merge / Split
-function mergeTable(tableID){
-  const t=tables[tableID];
-  mergedHistory[tableID]=JSON.parse(JSON.stringify(t.subOrders));
-  const mergedItems=[]; t.subOrders.forEach(s=>mergedItems.push(...s.items));
-  t.subOrders=[{id:'SUB-'+Date.now(),description:'Merged Order',items:mergedItems,total:mergedItems.reduce((s,i)=>s+s.price*i.qty,0)}];
-  saveTables(); renderTables();
-}
-function splitTable(tableID){
-  tables[tableID].subOrders=JSON.parse(JSON.stringify(mergedHistory[tableID]));
-  delete mergedHistory[tableID];
-  saveTables(); renderTables();
 }
 
 // Payment
@@ -283,24 +207,18 @@ function openPayment(tableID,subID){
   const t=tables[tableID];
   if(subID){
     const sub=t.subOrders.find(s=>s.id===subID);
-    sub.items.forEach(it=>{
-      const d=document.createElement('div'); d.textContent=it.item+' x'+it.qty+' - '+it.price*it.qty+' mts';
-      paymentContent.appendChild(d);
-    });
+    sub.items.forEach(it=>{ const d=document.createElement('div'); d.textContent=it.item+' x'+it.qty+' - '+it.price*it.qty+' mts'; paymentContent.appendChild(d); });
   }else{
-    t.subOrders.forEach(sub=>sub.items.forEach(it=>{
-      const d=document.createElement('div'); d.textContent=it.item+' x'+it.qty+' - '+it.price*it.qty+' mts';
-      paymentContent.appendChild(d);
-    }));
+    t.subOrders.forEach(sub=>sub.items.forEach(it=>{ const d=document.createElement('div'); d.textContent=it.item+' x'+it.qty+' - '+it.price*it.qty+' mts'; paymentContent.appendChild(d); }));
   }
 }
-paidBtn.onclick=async ()=>{
+
+paidBtn.onclick=async()=>{
   const {tableID,subID}=currentPayment||{};
-  if(!tableID||!paymentMethod.value) return alert('Select method');
+  if(!tableID||!paymentMethod.value) return alert('Select payment method');
   const t=tables[tableID];
   if(subID){
-    const sub=t.subOrders.find(s=>s.id===subID);
-    sub.items.forEach(i=>i.status='paid');
+    const sub=t.subOrders.find(s=>s.id===subID); sub.items.forEach(i=>i.status='paid');
   }else{
     t.subOrders.forEach(sub=>sub.items.forEach(i=>i.status='paid'));
     t.status='closed';
