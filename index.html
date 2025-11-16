@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Master POS — Full</title>
+<title>POS — Fixed Merge & Payments</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
   :root{--blue:#007bff;--green:#28a745;--red:#dc3545;--muted:#f4f4f4}
@@ -39,7 +39,7 @@
 <body>
 
 <div class="order-box">
-  <h2><i class="fas fa-utensils"></i> POS Master</h2>
+  <h2><i class="fas fa-utensils"></i> POS — Fixed</h2>
 
   <label>Table</label>
   <select id="tableSelect"><option value="" disabled selected>Select table</option></select>
@@ -86,16 +86,10 @@
 </div>
 
 <script type="module">
-/* =========================
-   Master POS - Full Code
-   ========================= */
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-/* --------- FIREBASE CONFIG ----------
- Replace placeholders with your real values
------------------------------------- */
+/* === FIREBASE CONFIG - replace placeholders === */
 const firebaseConfig = {
   apiKey: "YOUR_REAL_API_KEY",
   authDomain: "YOUR_REAL_DOMAIN",
@@ -109,7 +103,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const posDocRef = doc(db, "posData", "pos");
 
-/* --------- DOM --------- */
+/* DOM */
 const tableSelect = document.getElementById('tableSelect');
 const descriptionInput = document.getElementById('descriptionInput');
 const typeSelect = document.getElementById('typeSelect');
@@ -124,53 +118,33 @@ const paymentMethod = document.getElementById('paymentMethod');
 const confirmPayBtn = document.getElementById('confirmPayBtn');
 const closePayBtn = document.getElementById('closePayBtn');
 
-/* --------- State --------- */
 let posData = { openTables: [], closedTables: [] };
-let currentPayContext = null; // { table, person }
+let currentPayContext = null;
 
-/* --------- Menu --------- */
+/* Menu */
 const menuItems = {
   food: [{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
   drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
 };
 
-/* --------- Init tables 1..13 --------- */
+/* Init table select 1..13 */
 for(let i=1;i<=13;i++){
   const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
 }
 
-/* --------- Update items when type changes --------- */
+/* Update item list */
 typeSelect.addEventListener('change', ()=>{
   itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
-  const type = typeSelect.value;
-  if(type && menuItems[type]){
-    menuItems[type].forEach(mi=>{
-      const o = document.createElement('option');
-      o.value = mi.item; o.dataset.price = mi.price; o.textContent = `${mi.item} - ${mi.price} mts`;
-      itemSelect.appendChild(o);
-    });
-  }
+  const list = menuItems[typeSelect.value] || [];
+  list.forEach(mi=>{
+    const o = document.createElement('option');
+    o.value = mi.item; o.dataset.price = mi.price; o.textContent = `${mi.item} - ${mi.price} mts`;
+    itemSelect.appendChild(o);
+  });
 });
 
-/* --------- Firestore save/load --------- */
-async function savePOS(){
-  try{
-    await setDoc(posDocRef, posData);
-  }catch(e){
-    console.error('savePOS error', e);
-  }
-}
-
-onSnapshot(posDocRef, snap=>{
-  posData = snap.exists() ? (snap.data() || {openTables:[],closedTables:[]}) : {openTables:[],closedTables:[]};
-  // defensive normalization
-  posData.openTables = Array.isArray(posData.openTables) ? posData.openTables : [];
-  posData.closedTables = Array.isArray(posData.closedTables) ? posData.closedTables : [];
-  renderTables();
-});
-
-/* --------- Helpers --------- */
+/* ---------- Helpers ---------- */
 function findOpenTable(tableNumber){ return posData.openTables.find(t => String(t.tableNumber) === String(tableNumber)); }
 function ensureTableExists(tableNumber){
   let t = findOpenTable(tableNumber);
@@ -180,70 +154,59 @@ function ensureTableExists(tableNumber){
   }
   return t;
 }
+
+/* Safe totals calculator (won't crash) */
 function recalcTableTotals(table){
-  table.people.forEach(p => p.totalPrice = (p.orders||[]).reduce((s,o)=>s + (Number(o.price)||0) * (Number(o.quantity)||1), 0));
-  table.tableTotal = (table.people||[]).reduce((s,p)=>s + Number(p.totalPrice||0), 0);
+  if(!table) return;
+  table.people = Array.isArray(table.people) ? table.people : [];
+  table.people.forEach(p => {
+    p.orders = Array.isArray(p.orders) ? p.orders : [];
+    p.totalPrice = p.orders.reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
+  });
+  table.tableTotal = table.people.reduce((s,p)=> s + (Number(p.totalPrice)||0), 0);
 }
 
-/* --------- Add Item Handler --------- */
-addItemBtn.addEventListener('click', async ()=>{
-  const tableNum = tableSelect.value;
-  const desc = (descriptionInput.value || 'Customer').trim();
-  const type = typeSelect.value;
-  const itemName = itemSelect.value;
-  const price = itemSelect.selectedOptions && itemSelect.selectedOptions[0] ? Number(itemSelect.selectedOptions[0].dataset.price) : null;
-  const qty = Math.max(1, parseInt(quantityInput.value) || 1);
+/* ---------- Firestore save/load ---------- */
+async function savePOS(){
+  try{ await setDoc(posDocRef, posData); }
+  catch(e){ console.error('savePOS error', e); }
+}
 
-  if(!tableNum || !type || !itemName || !isFinite(price)){
-    alert('Select table, type and item.');
-    return;
-  }
-
-  const table = ensureTableExists(tableNum);
-  let person = (table.people || []).find(p => p.description === desc);
-  if(!person){
-    person = { id:'PERSON-'+Date.now(), description: desc, orders: [], totalPrice: 0, payment: null };
-    table.people.push(person);
-  }
-
-  person.orders.push({ id:'ORDER-'+Date.now(), item: itemName, price, quantity: qty, status:'pending', paid:false });
-  recalcTableTotals(table);
-  await savePOS();
-
-  quantityInput.value = 1; descriptionInput.value = '';
-});
-
-/* --------- Render UI --------- */
+/* renderTables declared BEFORE onSnapshot to avoid "not defined" issues */
 function renderTables(){
   tablesContainer.innerHTML = '';
-  // sort by tableNumber (numeric) for stable display
-  const sorted = posData.openTables.slice().sort((a,b)=> Number(a.tableNumber) - Number(b.tableNumber));
+  // sort by numeric table number for stable order
+  const sorted = (posData.openTables || []).slice().sort((a,b)=> Number(a.tableNumber) - Number(b.tableNumber));
   sorted.forEach(table=>{
+    // ensure arrays exist
+    table.people = Array.isArray(table.people) ? table.people : [];
+    recalcTableTotals(table);
+
     const box = document.createElement('div'); box.className='table-box';
 
     // header
     const header = document.createElement('div'); header.className='table-header';
     const left = document.createElement('div');
-    left.innerHTML = `<strong>Table ${table.tableNumber}</strong>`;
-    if(table.merged) left.innerHTML += ` <span class="merged-tag">Merged</span>`;
+    left.innerHTML = `<strong>Table ${table.tableNumber}</strong>` + (table.merged ? ` <span class="merged-tag">Merged</span>` : '');
     const right = document.createElement('div'); right.innerHTML = `<strong>${Number(table.tableTotal||0)} mts</strong>`;
     header.appendChild(left); header.appendChild(right);
     box.appendChild(header);
 
     // people
     (table.people || []).forEach(person=>{
+      person.orders = Array.isArray(person.orders) ? person.orders : [];
       const pbox = document.createElement('div'); pbox.className='person-box';
-      // title row with description + paid tag if payment exists
+
+      // title row
       const title = document.createElement('div'); title.className='person-title';
       const nameDiv = document.createElement('div');
-      nameDiv.innerHTML = `<strong>${person.description}</strong> - ${Number(person.totalPrice||0)} mts`;
-      if(person.payment) nameDiv.innerHTML += ` <span class="paid-tag">Paid</span>`;
+      nameDiv.innerHTML = `<strong>${person.description}</strong> - ${Number(person.totalPrice||0)} mts` + (person.payment ? ` <span class="paid-tag">Paid</span>` : '');
       title.appendChild(nameDiv);
 
-      // actions small per person (move person)
+      // move person button
       const nameActions = document.createElement('div');
       const movePersonBtn = document.createElement('button'); movePersonBtn.className='small move-btn'; movePersonBtn.textContent='Move';
-      movePersonBtn.title = 'Move this person to another table';
+      movePersonBtn.title='Move this person to another table';
       movePersonBtn.onclick = async ()=>{
         const newTableNum = prompt('Enter target table number:');
         if(!newTableNum) return;
@@ -252,12 +215,10 @@ function renderTables(){
           target = { id:'TABLE-'+Date.now(), tableNumber: String(newTableNum), timeOpened: new Date().toISOString(), timeClosed: null, people: [], tableTotal:0, merged:false };
           posData.openTables.push(target);
         }
-        // move person object reference
+        // move person
         table.people = table.people.filter(p => p !== person);
         target.people.push(person);
-        recalcTableTotals(table);
-        recalcTableTotals(target);
-        // remove table if empty
+        recalcTableTotals(table); recalcTableTotals(target);
         if(!table.people.length) posData.openTables = posData.openTables.filter(t=>t!==table);
         await savePOS();
       };
@@ -274,7 +235,7 @@ function renderTables(){
         row.appendChild(leftInfo);
 
         const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
-        // Serve button (disappear after served)
+
         if(order.status !== 'served'){
           const serveBtn = document.createElement('button'); serveBtn.className='small serve-btn'; serveBtn.textContent='Serve';
           serveBtn.onclick = async ()=>{
@@ -283,17 +244,15 @@ function renderTables(){
           };
           actions.appendChild(serveBtn);
         }
-        // Cancel button
+
         const cancelBtn = document.createElement('button'); cancelBtn.className='small cancel-btn'; cancelBtn.textContent='Cancel';
         cancelBtn.onclick = async ()=>{
           person.orders = (person.orders || []).filter(o => o !== order);
-          person.totalPrice = (person.orders || []).reduce((s,o)=>s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
-          // if person now empty remove person
+          person.totalPrice = (person.orders || []).reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
           if(!person.orders.length){
             table.people = (table.people || []).filter(p => p !== person);
           }
           recalcTableTotals(table);
-          // if table empty remove table
           if(!table.people.length) posData.openTables = posData.openTables.filter(t=>t!==table);
           await savePOS();
         };
@@ -303,7 +262,7 @@ function renderTables(){
         pbox.appendChild(row);
       });
 
-      // Pay separately per person (if any unpaid orders)
+      // pay per person (if any unpaid)
       if((person.orders||[]).some(o => !o.paid)){
         const payBtn = document.createElement('button'); payBtn.className='small pay-btn'; payBtn.textContent='Pay';
         payBtn.onclick = ()=>{
@@ -318,72 +277,74 @@ function renderTables(){
       box.appendChild(pbox);
     });
 
-    // Controls for the table (merge, split table, merge bills, split bills, move table)
-    const controls = document.createElement('div'); controls.className = 'controls';
+    // table controls
+    const controls = document.createElement('div'); controls.className='controls';
 
-    // Merge Table (combine two whole tables into one)
-    if(!table.merged && posData.openTables.length > 1){
+    // Merge Table (whole-table)
+    if(!table.merged && (posData.openTables||[]).length > 1){
       const mergeBtn = document.createElement('button'); mergeBtn.className='small merge-btn'; mergeBtn.textContent='Merge Table';
       mergeBtn.onclick = async ()=>{
-        const otherTableNum = prompt('Enter table number to merge with:');
-        if(!otherTableNum) return;
-        const other = posData.openTables.find(t => String(t.tableNumber) === String(otherTableNum) && t !== table);
-        if(!other){ alert('Invalid other table'); return; }
+        const otherNum = prompt('Enter table number to merge with:');
+        if(!otherNum) return;
+        const other = posData.openTables.find(t => String(t.tableNumber) === String(otherNum) && t !== table);
+        if(!other){ alert('Invalid table'); return; }
         table.people = (table.people||[]).concat(other.people||[]);
         table.merged = true;
         recalcTableTotals(table);
-        posData.openTables = posData.openTables.filter(t=>t!==other);
+        posData.openTables = posData.openTables.filter(t => t !== other);
         await savePOS();
       };
       controls.appendChild(mergeBtn);
     }
 
-    // Split merged table (if table was merged from other table(s))
-    if(table.merged && (table.people||[]).length > 1){
+    // Split merged table (whole-table split)
+    if(table.merged && (table.people || []).length > 1){
       const splitBtn = document.createElement('button'); splitBtn.className='small split-btn'; splitBtn.textContent='Split Table';
       splitBtn.onclick = async ()=>{
-        // For each person create a new table with next available number
         (table.people || []).forEach(person=>{
           let nextNum = 1;
           while(posData.openTables.some(t => String(t.tableNumber) === String(nextNum))) nextNum++;
-          const newTable = { id:'TABLE-'+Date.now()+'-'+person.id, tableNumber: String(nextNum), timeOpened: table.timeOpened, timeClosed: null, people:[person], tableTotal: person.totalPrice, merged:false };
+          const newTable = { id:'TABLE-'+Date.now()+'-'+person.id, tableNumber: String(nextNum), timeOpened: table.timeOpened || new Date().toISOString(), timeClosed: null, people:[person], tableTotal: person.totalPrice || 0, merged:false };
           posData.openTables.push(newTable);
         });
-        // remove old merged table
         posData.openTables = posData.openTables.filter(t => t !== table);
         await savePOS();
       };
       controls.appendChild(splitBtn);
     }
 
-    // Merge bills within table (combine people into single person)
-    if((table.people||[]).length > 1){
-      const mergeBillsBtn = document.createElement('button'); mergeBillsBtn.className='small merge-bills-btn'; mergeBillsBtn.textContent='Merge Bills';
-      mergeBillsBtn.onclick = async ()=>{
+    // Merge Bills inside table (combine people -> single person)
+    if((table.people || []).length > 1){
+      const mergeBills = document.createElement('button'); mergeBills.className='small merge-bills-btn'; mergeBills.textContent='Merge Bills';
+      mergeBills.onclick = async ()=>{
+        // safety checks
+        if(!Array.isArray(table.people) || table.people.length < 2){ alert('Nothing to merge'); return; }
         const mergedPerson = { id:'PERSON-'+Date.now(), description:'Merged', orders: [], totalPrice:0, payment:null };
-        // concat orders and keep them intact
-        (table.people || []).forEach(p => {
+        table.people.forEach(p => {
           (p.orders || []).forEach(o => mergedPerson.orders.push(Object.assign({}, o)));
         });
-        recalcTableTotals(mergedPerson); // person total
+        // ensure orders array exists
+        mergedPerson.orders = Array.isArray(mergedPerson.orders) ? mergedPerson.orders : [];
+        // compute totals
+        mergedPerson.totalPrice = mergedPerson.orders.reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
         table.people = [mergedPerson];
         table.merged = true;
         recalcTableTotals(table);
         await savePOS();
       };
-      controls.appendChild(mergeBillsBtn);
+      controls.appendChild(mergeBills);
     }
 
-    // Split merged bills (when the single person is 'Merged' or table.merged)
-    if((table.people||[]).length === 1 && (table.people[0].description === 'Merged' || table.merged)){
-      const splitBillsBtn = document.createElement('button'); splitBillsBtn.className='small split-btn'; splitBillsBtn.textContent='Split Bills';
-      splitBillsBtn.onclick = async ()=>{
-        const mergedPerson = table.people[0];
-        const origOrders = mergedPerson.orders || [];
-        // create one person per order (lossy: descriptions become Person #)
-        const newPeople = origOrders.map((o,i) => ({
-          id: 'PERSON-' + Date.now() + '-' + i,
-          description: 'Person ' + (i+1),
+    // Split Bills (when single Merged person exists)
+    if((table.people || []).length === 1 && (table.people[0].description === 'Merged' || table.merged)){
+      const splitBills = document.createElement('button'); splitBills.className='small split-btn'; splitBills.textContent='Split Bills';
+      splitBills.onclick = async ()=>{
+        const merged = table.people[0];
+        const orig = Array.isArray(merged.orders) ? merged.orders : [];
+        // create one person per order (descriptions default)
+        const newPeople = orig.map((o,i) => ({
+          id:'PERSON-'+Date.now()+'-'+i,
+          description: 'Person '+(i+1),
           orders: [ Object.assign({}, o) ],
           totalPrice: (Number(o.price)||0) * (Number(o.quantity)||1),
           payment: null
@@ -393,10 +354,10 @@ function renderTables(){
         recalcTableTotals(table);
         await savePOS();
       };
-      controls.appendChild(splitBillsBtn);
+      controls.appendChild(splitBills);
     }
 
-    // Move table number
+    // Move table
     const moveTableBtn = document.createElement('button'); moveTableBtn.className='small move-btn'; moveTableBtn.textContent='Move Table';
     moveTableBtn.onclick = async ()=>{
       const newNum = prompt('Enter new table number:');
@@ -407,50 +368,90 @@ function renderTables(){
     };
     controls.appendChild(moveTableBtn);
 
-    // Append controls and box
     box.appendChild(controls);
     tablesContainer.appendChild(box);
   });
 }
 
-/* --------- Payment flow --------- */
+/* ---------- Firestore listener (after renderTables is declared) ---------- */
+onSnapshot(posDocRef, snap=>{
+  posData = snap.exists() ? (snap.data() || {openTables:[],closedTables:[]}) : {openTables:[],closedTables:[]};
+  posData.openTables = Array.isArray(posData.openTables) ? posData.openTables : [];
+  posData.closedTables = Array.isArray(posData.closedTables) ? posData.closedTables : [];
+  renderTables();
+});
+
+/* ---------- Add item handler ---------- */
+addItemBtn.addEventListener('click', async ()=>{
+  const tableNum = tableSelect.value;
+  const desc = (descriptionInput.value || 'Customer').trim();
+  const type = typeSelect.value;
+  const itemName = itemSelect.value;
+  const option = itemSelect.selectedOptions && itemSelect.selectedOptions[0];
+  const price = option ? Number(option.dataset.price) : null;
+  const qty = Math.max(1, parseInt(quantityInput.value) || 1);
+
+  if(!tableNum || !type || !itemName || !isFinite(price)){
+    alert('Select table, type and item.');
+    return;
+  }
+
+  const table = ensureTableExists(tableNum);
+  let person = (table.people || []).find(p => p.description === desc);
+  if(!person){
+    person = { id:'PERSON-'+Date.now(), description: desc, orders: [], totalPrice:0, payment:null };
+    table.people.push(person);
+  }
+
+  person.orders = Array.isArray(person.orders) ? person.orders : [];
+  person.orders.push({ id:'ORDER-'+Date.now(), item:itemName, price, quantity:qty, status:'pending', paid:false });
+  recalcTableTotals(table);
+  await savePOS();
+
+  quantityInput.value = 1; descriptionInput.value = '';
+});
+
+/* ---------- Payment flow ---------- */
 closePayBtn.onclick = ()=>{ paymentModal.style.display = 'none'; currentPayContext = null; };
 
 confirmPayBtn.onclick = async ()=>{
   if(!currentPayContext){ alert('No payment context'); paymentModal.style.display='none'; return; }
   const method = paymentMethod.value;
   if(!method){ alert('Select payment method'); return; }
+
   const { table, person } = currentPayContext;
-  // mark all person's orders as paid and served
+  // mark paid and served
   (person.orders || []).forEach(o => { o.paid = true; o.status = 'served'; });
   person.payment = { method, amount: Number(person.totalPrice || 0), time: new Date().toISOString() };
+
   // remove person if all paid
-  if((person.orders || []).every(o => o.paid)) table.people = (table.people || []).filter(p => p !== person);
-  // if table empty -> close table
+  if((person.orders || []).every(o => o.paid)){
+    table.people = (table.people || []).filter(p => p !== person);
+  }
+
+  // if table empty -> move to closedTables
   if(!(table.people || []).length){
     table.timeClosed = new Date().toISOString();
-    posData.closedTables = posData.closedTables || [];
+    posData.closedTables = Array.isArray(posData.closedTables) ? posData.closedTables : [];
     posData.closedTables.push(table);
     posData.openTables = posData.openTables.filter(t => t !== table);
   }
-  // recalc totals
-  posData.openTables.forEach(t => recalcTableTotals(t));
+
+  // recalc totals for all open tables
+  (posData.openTables || []).forEach(t => recalcTableTotals(t));
   await savePOS();
+
+  // UI: close modal and re-render (onSnapshot will re-render too, but do it locally for instant feedback)
   paymentModal.style.display = 'none';
   currentPayContext = null;
+  renderTables();
 };
 
-/* --------- initial render (if no data, create pos doc) --------- */
+/* ---------- Ensure doc exists initially ---------- */
 (async function ensureDoc(){
-  try{
-    // ensure posDoc exists with expected structure the first time
-    // (setDoc will create/update)
-    // Only create if document is empty (onSnapshot will load if exists)
-    // We'll set a doc if not present by writing current posData (safe)
-    await setDoc(posDocRef, posData, { merge: true });
-  }catch(e){ console.warn('ensure doc warning', e); }
+  try{ await setDoc(posDocRef, posData, { merge: true }); }
+  catch(e){ console.warn('ensure doc warning', e); }
 })();
-
 </script>
 </body>
 </html>
