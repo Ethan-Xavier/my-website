@@ -78,7 +78,7 @@ function logAllOrders(){
   console.clear();
   console.log('Open Orders:'); console.table(openOrders);
   console.log('Served Orders:'); console.table(servedOrders);
-  console.log('Paid Orders (receipt logged when moved here):'); console.table(paidOrders);
+  console.log('Paid Orders:'); console.table(paidOrders);
 }
 
 function renderOrders(){
@@ -110,7 +110,6 @@ function renderOrders(){
       if(status==='open'){
         div.querySelector('.small').onclick=()=>{ 
           const idxs = ordersArray.reduce((arr,o,i)=>o.description===desc?[...arr,i]:arr,[]);
-          // remove all orders in group
           idxs.reverse().forEach(i=>ordersArray.splice(i,1));
           renderOrders(); logAllOrders();
         };
@@ -128,8 +127,16 @@ function renderOrders(){
           const receipt = [];
           idxs.reverse().forEach(i=>{
             const o = ordersArray.splice(i,1)[0];
-            paidOrders.push(o);
-            receipt.push(o);
+            // Keep only essential info
+            const cleaned = {
+              item: o.item,
+              type: o.type,
+              quantity: o.quantity,
+              price: o.price,
+              time: o.time
+            };
+            paidOrders.push(cleaned);
+            receipt.push(cleaned);
           });
           console.log(`=== RECEIPT: ${desc} ===`);
           receipt.forEach(r=>console.log(`${r.type}: ${r.item} x${r.quantity} - ${r.price*r.quantity} mts`));
