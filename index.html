@@ -2,128 +2,78 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>POS System — Simplified</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple POS Tracker</title>
 <style>
-body {
-  font-family: Segoe UI, sans-serif;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: #f4f4f4;
-}
-
-.order-group {
-  background: #fff;
-  padding: 12px;
-  margin-bottom: 12px;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-
-.order-line {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.order-line:last-child {
-  border-bottom: none;
-}
-
-button {
-  padding: 6px 10px;
-  margin-right: 4px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.served-btn { background: #28a745; color: #fff; }
-.cancel-btn { background: #dc3545; color: #fff; }
-.pay-btn    { background: #007bff; color: #fff; }
-.problem-btn{ background: #ffc107; color: #222; }
-
-label, select, input { display:block; margin:6px 0; padding:6px; border-radius:6px; width:100%; }
-textarea { width: 100%; border-radius: 6px; padding: 6px; }
-
-#problemModal {
-  display: none;
-  position: fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background: rgba(0,0,0,0.5);
-  justify-content: center;
-  align-items: center;
-}
-
-#problemModal div {
-  background: #fff;
-  padding: 20px;
-  border-radius: 12px;
-  width: 300px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+body{font-family:sans-serif;background:#f4f4f4;padding:20px;}
+.section{margin-bottom:30px;}
+.section h2{margin-bottom:10px;}
+.group-box{background:#fff;padding:12px;border-radius:8px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+.group-actions{margin-top:6px;}
+button{margin-right:6px;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;}
+.cancel-btn{background:#dc3545;color:#fff;}
+.served-btn{background:#28a745;color:#fff;}
+.problem-btn{background:#ffc107;color:#222;}
+.modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;}
+.modal{background:#fff;padding:20px;border-radius:12px;width:320px;display:flex;flex-direction:column;gap:12px;}
 </style>
 </head>
 <body>
 
-<h2>POS System — Simplified</h2>
-
-<!-- Order Form -->
+<div class="order-entry">
+<h2>Place Order</h2>
 <label>Description</label>
-<input id="descInput" placeholder="e.g. Table 1 / John">
-
+<input id="descriptionInput" placeholder="e.g. John / Veggie" />
 <label>Type</label>
 <select id="typeSelect">
-  <option value="" disabled selected>Select Type</option>
-  <option value="food">Food</option>
-  <option value="drink">Drink</option>
+<option value="" disabled selected>Select type</option>
+<option value="food">Food</option>
+<option value="drink">Drink</option>
 </select>
-
 <label>Item</label>
 <select id="itemSelect">
-  <option value="" disabled selected>Select Item</option>
+<option value="" disabled selected>Select item</option>
 </select>
-
 <label>Quantity</label>
-<input type="number" id="qtyInput" value="1" min="1">
-
+<input id="quantityInput" type="number" min="1" value="1" />
 <button id="addBtn">Add Order</button>
+</div>
 
-<h3>Placed Orders</h3>
-<div id="placedContainer"></div>
+<div class="section">
+<h2>Placed Orders</h2>
+<div id="placedOrdersDiv"></div>
+</div>
 
-<h3>Served Orders</h3>
-<div id="servedContainer"></div>
+<div class="section">
+<h2>Served Orders</h2>
+<div id="servedOrdersDiv"></div>
+</div>
 
-<h3>Paid Orders</h3>
-<div id="paidContainer"></div>
+<div class="section">
+<h2>Paid Orders</h2>
+<div id="paidOrdersDiv"></div>
+</div>
 
 <!-- Problem Modal -->
-<div id="problemModal">
-  <div>
-    <h3>Report a Problem</h3>
-    <textarea id="problemText" rows="5" placeholder="Describe the problem..."></textarea>
-    <button id="saveProblemBtn" style="background:#28a745;color:#fff;">Save</button>
-    <button id="closeProblemBtn" style="background:#dc3545;color:#fff;">Close</button>
-  </div>
+<div id="problemModal" class="modal-bg">
+<div class="modal">
+<h3>Describe the Problem</h3>
+<textarea id="problemText" rows="4" placeholder="Write the problem here..."></textarea>
+<button id="saveProblemBtn">Save Problem</button>
+<button id="closeProblemBtn">Close</button>
+</div>
 </div>
 
 <script>
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
-const descInput = document.getElementById('descInput');
-const qtyInput = document.getElementById('qtyInput');
+const descriptionInput = document.getElementById('descriptionInput');
+const quantityInput = document.getElementById('quantityInput');
 const addBtn = document.getElementById('addBtn');
 
-const placedContainer = document.getElementById('placedContainer');
-const servedContainer = document.getElementById('servedContainer');
-const paidContainer = document.getElementById('paidContainer');
+const placedOrdersDiv = document.getElementById('placedOrdersDiv');
+const servedOrdersDiv = document.getElementById('servedOrdersDiv');
+const paidOrdersDiv = document.getElementById('paidOrdersDiv');
 
 const problemModal = document.getElementById('problemModal');
 const problemText = document.getElementById('problemText');
@@ -131,132 +81,111 @@ const saveProblemBtn = document.getElementById('saveProblemBtn');
 const closeProblemBtn = document.getElementById('closeProblemBtn');
 
 const menuItems = {
-  food:['Pizza','Pasta','Burger','Salad','Soup'],
-  drink:['Soda','Juice','Water','Coffee','Tea']
+  food: ['Pizza', 'Pasta', 'Burger'],
+  drink: ['Soda', 'Juice', 'Water']
 };
 
 let placedOrders = [];
 let servedOrders = [];
 let paidOrders = [];
+let problemOrders = [];
 
-// Populate itemSelect based on type
-typeSelect.addEventListener('change',()=> {
-  itemSelect.innerHTML = '<option value="" disabled selected>Select Item</option>';
-  menuItems[typeSelect.value].forEach(i=>{
-    const opt=document.createElement('option');
-    opt.value=i; opt.textContent=i;
+typeSelect.addEventListener('change', ()=>{
+  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
+  (menuItems[typeSelect.value]||[]).forEach(i=>{
+    const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
     itemSelect.appendChild(opt);
   });
 });
 
-addBtn.addEventListener('click',()=>{
-  const desc = descInput.value.trim() || 'Order';
-  const item = itemSelect.value;
+addBtn.addEventListener('click', ()=>{
+  const desc = descriptionInput.value.trim();
   const type = typeSelect.value;
-  const qty = parseInt(qtyInput.value) || 1;
-  const price = 100; // simplified price
+  const item = itemSelect.value;
+  const qty = parseInt(quantityInput.value)||1;
+  if(!desc || !type || !item || qty<1){ alert('Fill all fields'); return; }
 
-  if(!item) { alert('Select item'); return; }
-
-  placedOrders.push({description:desc, type, item, quantity:qty, price, time:new Date().toLocaleTimeString()});
-  console.log('Placed Orders:', placedOrders);
+  placedOrders.push({description:desc,item,quantity:qty,price:qty*10,time:new Date().toISOString()});
+  descriptionInput.value=''; quantityInput.value=1; typeSelect.value=''; itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
   renderAll();
 });
 
-function renderGroup(container, ordersArray, status){
+function renderAll(){
+  renderGroup(placedOrders, placedOrdersDiv, true);
+  renderGroup(servedOrders, servedOrdersDiv, false);
+  renderGroup(paidOrders, paidOrdersDiv, false);
+
+  console.log('Placed Orders:', placedOrders);
+  console.log('Served Orders:', servedOrders);
+  console.log('Paid Orders:', paidOrders);
+  console.log('Problem Orders:', problemOrders);
+}
+
+function renderGroup(array, container, showButtons){
   container.innerHTML='';
   const groups = {};
-  ordersArray.forEach(o=>{
+  array.forEach(o=>{
     if(!groups[o.description]) groups[o.description]=[];
     groups[o.description].push(o);
   });
 
   Object.keys(groups).forEach(desc=>{
     const group = groups[desc];
-    const div=document.createElement('div'); div.className='order-group';
-    
-    group.forEach(o=>{
-      const line = document.createElement('div');
-      line.className='order-line';
-      line.innerHTML=`<span>${o.item} x${o.quantity}</span><span>${o.price*o.quantity} mts</span>`;
-      div.appendChild(line);
-    });
+    const div = document.createElement('div'); div.className='group-box';
+    div.innerHTML=`<strong>${desc}</strong> - Total: ${group.reduce((s,o)=>s+o.price,0)} mts`;
+    if(showButtons){
+      const actions = document.createElement('div'); actions.className='group-actions';
 
-    // Buttons
-    const btnDiv = document.createElement('div');
-    if(status==='placed'){
-      const cancelBtn = document.createElement('button'); cancelBtn.className='cancel-btn'; cancelBtn.textContent='Cancel';
-      cancelBtn.onclick = ()=>{
-        const idx = ordersArray.indexOf(group[0]);
-        ordersArray.splice(idx, group.length);
-        renderAll();
+      const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancel'; cancelBtn.className='cancel-btn';
+      cancelBtn.onclick = ()=>{ 
+        array.splice(array.indexOf(group[0]), group.length); renderAll(); 
       };
-      const servedBtn = document.createElement('button'); servedBtn.className='served-btn'; servedBtn.textContent='Served';
+      actions.appendChild(cancelBtn);
+
+      const servedBtn = document.createElement('button'); servedBtn.textContent='Served'; servedBtn.className='served-btn';
       servedBtn.onclick = ()=>{
         servedOrders.push(...group);
-        ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
+        array.splice(array.indexOf(group[0]), group.length);
         renderAll();
       };
-      const problemBtn = document.createElement('button'); problemBtn.className='problem-btn'; problemBtn.textContent='Problem';
+      actions.appendChild(servedBtn);
+
+      const problemBtn = document.createElement('button'); problemBtn.textContent='Problem'; problemBtn.className='problem-btn';
       problemBtn.onclick = ()=>{
-        // Move to paidOrders with price 0
-        paidOrders.push(...group.map(o=>({
-          item: o.item,
-          quantity: o.quantity,
-          price: 0,
-          time: o.time,
-          description: o.description
-        })));
-        ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
+        paidOrders.push(...group.map(o=>({...o,price:0})));
+        array.splice(array.indexOf(group[0]), group.length);
         renderAll();
-        openProblemModal(desc);
+        openProblemModal(desc, group);
       };
-      btnDiv.append(cancelBtn, servedBtn, problemBtn);
-    } else if(status==='served'){
-      const payBtn = document.createElement('button'); payBtn.className='pay-btn'; payBtn.textContent='Pay';
-      payBtn.onclick = ()=>{
-        paidOrders.push(...group.map(o=>({item:o.item, quantity:o.quantity, price:o.price, time:o.time})));
-        ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
-        console.log('Receipt:', paidOrders.slice(-group.length));
-        renderAll();
-      };
-      const problemBtn = document.createElement('button'); problemBtn.className='problem-btn'; problemBtn.textContent='Problem';
-      problemBtn.onclick = ()=>{
-        paidOrders.push(...group.map(o=>({
-          item: o.item,
-          quantity: o.quantity,
-          price: 0,
-          time: o.time,
-          description: o.description
-        })));
-        ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
-        renderAll();
-        openProblemModal(desc);
-      };
-      btnDiv.append(payBtn, problemBtn);
+      actions.appendChild(problemBtn);
+
+      div.appendChild(actions);
     }
-    div.appendChild(btnDiv);
     container.appendChild(div);
   });
 }
 
-function openProblemModal(desc){
+function openProblemModal(desc, ordersGroup){
   problemModal.style.display='flex';
   saveProblemBtn.onclick = ()=>{
-    console.log(`Problem reported for ${desc}:`, problemText.value);
+    ordersGroup.forEach(o=>{
+      problemOrders.push({
+        item: o.item,
+        quantity: o.quantity,
+        originalPrice: o.price,
+        time: o.time,
+        description: o.description,
+        problemText: problemText.value
+      });
+    });
     problemText.value='';
     problemModal.style.display='none';
+    console.log('Problem Orders:', problemOrders);
   };
   closeProblemBtn.onclick = ()=>{
     problemText.value='';
     problemModal.style.display='none';
   };
-}
-
-function renderAll(){
-  renderGroup(placedContainer, placedOrders,'placed');
-  renderGroup(servedContainer, servedOrders,'served');
-  renderGroup(paidContainer, paidOrders,'paid');
 }
 </script>
 </body>
