@@ -3,190 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple POS Tracker</title>
+<title>Simple POS Prototype</title>
 <style>
-body{font-family:sans-serif;background:#f4f4f4;padding:20px;}
-.section{margin-bottom:30px;}
-.section h2{margin-bottom:10px;}
-.group-box{background:#fff;padding:12px;border-radius:8px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
-.group-actions{margin-top:6px;}
-button{margin-right:6px;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;}
-.cancel-btn{background:#dc3545;color:#fff;}
-.served-btn{background:#28a745;color:#fff;}
-.problem-btn{background:#ffc107;color:#222;}
-.modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;}
-.modal{background:#fff;padding:20px;border-radius:12px;width:320px;display:flex;flex-direction:column;gap:12px;}
+body { font-family: Arial, sans-serif; margin: 20px; }
+h2 { margin-top: 40px; }
+section { margin-bottom: 30px; }
+.order { display: flex; gap: 10px; padding: 6px; border: 1px solid #ccc; margin: 4px 0; align-items: center; }
+button { padding: 4px 8px; cursor: pointer; }
+.modal-bg { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); justify-content:center; align-items:center; }
+.modal { background:#fff; padding:20px; border-radius:10px; min-width:300px; }
 </style>
 </head>
 <body>
 
-<div class="order-entry">
-<h2>Place Order</h2>
-<label>Description</label>
-<input id="descriptionInput" placeholder="e.g. John / Veggie" />
-<label>Type</label>
-<select id="typeSelect">
-<option value="" disabled selected>Select type</option>
-<option value="food">Food</option>
-<option value="drink">Drink</option>
-</select>
-<label>Item</label>
-<select id="itemSelect">
-<option value="" disabled selected>Select item</option>
-</select>
-<label>Quantity</label>
-<input id="quantityInput" type="number" min="1" value="1" />
-<button id="addBtn">Add Order</button>
+<h1>Simple POS Prototype</h1>
+
+<!-- Input Section -->
+<div>
+  <label>Description: <input type="text" id="descInput"></label>
+  <label>Type: 
+    <select id="typeSelect">
+      <option value="" disabled selected>Select type</option>
+      <option value="food">Food</option>
+      <option value="drink">Drink</option>
+    </select>
+  </label>
+  <label>Item: 
+    <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
+  </label>
+  <label>Quantity: <input type="number" id="qtyInput" min="1" value="1"></label>
+  <button id="makeOrderBtn">Make Order</button>
 </div>
 
-<div class="section">
-<h2>Placed Orders</h2>
-<div id="placedOrdersDiv"></div>
-</div>
+<!-- Orders Sections -->
+<section>
+  <h2>Placed Orders</h2>
+  <div id="placedOrdersDiv"></div>
+</section>
 
-<div class="section">
-<h2>Served Orders</h2>
-<div id="servedOrdersDiv"></div>
-</div>
+<section>
+  <h2>Served Orders</h2>
+  <div id="servedOrdersDiv"></div>
+</section>
 
-<div class="section">
-<h2>Paid Orders</h2>
-<div id="paidOrdersDiv"></div>
-</div>
+<section>
+  <h2>Registered Orders</h2>
+  <div id="registeredOrdersDiv"></div>
+</section>
+
+<section>
+  <h2>Problem Orders</h2>
+  <div id="problemOrdersDiv"></div>
+</section>
 
 <!-- Problem Modal -->
 <div id="problemModal" class="modal-bg">
-<div class="modal">
-<h3>Describe the Problem</h3>
-<textarea id="problemText" rows="4" placeholder="Write the problem here..."></textarea>
-<button id="saveProblemBtn">Save Problem</button>
-<button id="closeProblemBtn">Close</button>
-</div>
+  <div class="modal">
+    <h3>Select Problem</h3>
+    <select id="problemSelect">
+      <option value="" disabled selected>Select a problem</option>
+      <option value="Order was messed up">The order was messed up</option>
+      <option value="Client canceled after preparation">Client canceled while it was already prepared</option>
+      <option value="Client didn't pay fully">Client didn't pay fully the order</option>
+      <option value="Other">Other</option>
+    </select>
+    <button id="confirmProblemBtn">Confirm</button>
+    <button id="closeProblemModal">Close</button>
+  </div>
 </div>
 
 <script>
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
-const descriptionInput = document.getElementById('descriptionInput');
-const quantityInput = document.getElementById('quantityInput');
-const addBtn = document.getElementById('addBtn');
+const descInput = document.getElementById('descInput');
+const qtyInput = document.getElementById('qtyInput');
+const makeOrderBtn = document.getElementById('makeOrderBtn');
 
 const placedOrdersDiv = document.getElementById('placedOrdersDiv');
 const servedOrdersDiv = document.getElementById('servedOrdersDiv');
-const paidOrdersDiv = document.getElementById('paidOrdersDiv');
+const registeredOrdersDiv = document.getElementById('registeredOrdersDiv');
+const problemOrdersDiv = document.getElementById('problemOrdersDiv');
 
 const problemModal = document.getElementById('problemModal');
-const problemText = document.getElementById('problemText');
-const saveProblemBtn = document.getElementById('saveProblemBtn');
-const closeProblemBtn = document.getElementById('closeProblemBtn');
-
-const menuItems = {
-  food: ['Pizza', 'Pasta', 'Burger'],
-  drink: ['Soda', 'Juice', 'Water']
-};
+const problemSelect = document.getElementById('problemSelect');
+const confirmProblemBtn = document.getElementById('confirmProblemBtn');
+const closeProblemModal = document.getElementById('closeProblemModal');
 
 let placedOrders = [];
 let servedOrders = [];
-let paidOrders = [];
+let registeredOrders = [];
 let problemOrders = [];
+let problemTarget = null;
 
-typeSelect.addEventListener('change', ()=>{
+const menuItems = {
+  food: ['Pizza','Burger','Pasta'],
+  drink: ['Soda','Juice','Water']
+};
+
+// Update item list based on type
+typeSelect.addEventListener('change', () => {
   itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
-  (menuItems[typeSelect.value]||[]).forEach(i=>{
-    const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
+  (menuItems[typeSelect.value] || []).forEach(i => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = i;
     itemSelect.appendChild(opt);
   });
 });
 
-addBtn.addEventListener('click', ()=>{
-  const desc = descriptionInput.value.trim();
+// Make order
+makeOrderBtn.addEventListener('click', () => {
+  const description = descInput.value.trim();
   const type = typeSelect.value;
   const item = itemSelect.value;
-  const qty = parseInt(quantityInput.value)||1;
-  if(!desc || !type || !item || qty<1){ alert('Fill all fields'); return; }
+  const qty = parseInt(qtyInput.value);
 
-  placedOrders.push({description:desc,item,quantity:qty,price:qty*10,time:new Date().toISOString()});
-  descriptionInput.value=''; quantityInput.value=1; typeSelect.value=''; itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
-  renderAll();
+  if(!description || !type || !item || qty<1){ alert('Fill all fields'); return; }
+
+  const order = {
+    description, type, item, quantity: qty, time: new Date().toISOString()
+  };
+  placedOrders.push(order);
+  logArrays();
+  renderOrders();
+  descInput.value=''; qtyInput.value=1; itemSelect.selectedIndex=0; typeSelect.selectedIndex=0;
 });
 
-function renderAll(){
-  renderGroup(placedOrders, placedOrdersDiv, true);
-  renderGroup(servedOrders, servedOrdersDiv, false);
-  renderGroup(paidOrders, paidOrdersDiv, false);
-
-  console.log('Placed Orders:', placedOrders);
-  console.log('Served Orders:', servedOrders);
-  console.log('Paid Orders:', paidOrders);
-  console.log('Problem Orders:', problemOrders);
+// Render all sections
+function renderOrders() {
+  renderSection(placedOrdersDiv, placedOrders, ['Cancel','Serve','Problem'], handlePlacedAction);
+  renderSection(servedOrdersDiv, servedOrders, ['Pay','Problem'], handleServedAction);
+  renderSection(registeredOrdersDiv, registeredOrders, [], null);
+  renderSection(problemOrdersDiv, problemOrders, [], null);
 }
 
-function renderGroup(array, container, showButtons){
-  container.innerHTML='';
-  const groups = {};
-  array.forEach(o=>{
-    if(!groups[o.description]) groups[o.description]=[];
-    groups[o.description].push(o);
-  });
-
-  Object.keys(groups).forEach(desc=>{
-    const group = groups[desc];
-    const div = document.createElement('div'); div.className='group-box';
-    div.innerHTML=`<strong>${desc}</strong> - Total: ${group.reduce((s,o)=>s+o.price,0)} mts`;
-    if(showButtons){
-      const actions = document.createElement('div'); actions.className='group-actions';
-
-      const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancel'; cancelBtn.className='cancel-btn';
-      cancelBtn.onclick = ()=>{ 
-        array.splice(array.indexOf(group[0]), group.length); renderAll(); 
-      };
-      actions.appendChild(cancelBtn);
-
-      const servedBtn = document.createElement('button'); servedBtn.textContent='Served'; servedBtn.className='served-btn';
-      servedBtn.onclick = ()=>{
-        servedOrders.push(...group);
-        array.splice(array.indexOf(group[0]), group.length);
-        renderAll();
-      };
-      actions.appendChild(servedBtn);
-
-      const problemBtn = document.createElement('button'); problemBtn.textContent='Problem'; problemBtn.className='problem-btn';
-      problemBtn.onclick = ()=>{
-        paidOrders.push(...group.map(o=>({...o,price:0})));
-        array.splice(array.indexOf(group[0]), group.length);
-        renderAll();
-        openProblemModal(desc, group);
-      };
-      actions.appendChild(problemBtn);
-
-      div.appendChild(actions);
-    }
+function renderSection(container, arr, buttons=[], handler) {
+  container.innerHTML = '';
+  arr.forEach((order, index) => {
+    const div = document.createElement('div');
+    div.className='order';
+    div.textContent = `[${order.description}] ${order.item} x${order.quantity}`;
+    buttons.forEach(btnName => {
+      const btn = document.createElement('button');
+      btn.textContent = btnName;
+      btn.addEventListener('click', ()=>handler(order,index,btnName));
+      div.appendChild(btn);
+    });
     container.appendChild(div);
   });
 }
 
-function openProblemModal(desc, ordersGroup){
-  problemModal.style.display='flex';
-  saveProblemBtn.onclick = ()=>{
-    ordersGroup.forEach(o=>{
-      problemOrders.push({
-        item: o.item,
-        quantity: o.quantity,
-        originalPrice: o.price,
-        time: o.time,
-        description: o.description,
-        problemText: problemText.value
-      });
-    });
-    problemText.value='';
-    problemModal.style.display='none';
-    console.log('Problem Orders:', problemOrders);
-  };
-  closeProblemBtn.onclick = ()=>{
-    problemText.value='';
-    problemModal.style.display='none';
-  };
+// Handlers
+function handlePlacedAction(order,index,action){
+  if(action==='Cancel'){ placedOrders.splice(index,1); }
+  else if(action==='Serve'){ 
+    servedOrders.push(order); placedOrders.splice(index,1);
+  } else if(action==='Problem'){ openProblemModal(order,'placed',index); }
+  logArrays(); renderOrders();
 }
+
+function handleServedAction(order,index,action){
+  if(action==='Pay'){
+    const paidOrder = {...order}; paidOrder.price = 100*order.quantity; // dummy price
+    registeredOrders.push(paidOrder); 
+    servedOrders.splice(index,1);
+  } else if(action==='Problem'){ openProblemModal(order,'served',index); }
+  logArrays(); renderOrders();
+}
+
+// Problem modal
+function openProblemModal(order,sectionName,index){
+  problemModal.style.display='flex';
+  problemTarget = {order, sectionName, index};
+}
+
+confirmProblemBtn.addEventListener('click', ()=>{
+  const selected = problemSelect.value;
+  if(!selected){ alert('Select a problem'); return; }
+  const {order,sectionName,index} = problemTarget;
+
+  const problemOrder = {...order, problemDescription:selected};
+  problemOrders.push(problemOrder);
+  const registeredCopy = {...order, price:0, problemDescription:selected};
+  registeredOrders.push(registeredCopy);
+
+  if(sectionName==='placed'){ placedOrders.splice(index,1); }
+  else if(sectionName==='served'){ servedOrders.splice(index,1); }
+
+  problemModal.style.display='none';
+  problemSelect.selectedIndex=0;
+  problemTarget = null;
+  logArrays();
+  renderOrders();
+});
+
+closeProblemModal.addEventListener('click', ()=>{
+  problemModal.style.display='none';
+  problemTarget=null;
+});
+
+function logArrays(){
+  console.log('Placed Orders:',placedOrders);
+  console.log('Served Orders:',servedOrders);
+  console.log('Registered Orders:',registeredOrders);
+  console.log('Problem Orders:',problemOrders);
+}
+
+renderOrders();
 </script>
+
 </body>
 </html>
