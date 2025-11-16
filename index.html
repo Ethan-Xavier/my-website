@@ -3,455 +3,299 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>POS — Fixed Merge & Payments</title>
+<title>Waiter POS — Efficient</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
-  :root{--blue:#007bff;--green:#28a745;--red:#dc3545;--muted:#f4f4f4}
-  body{font-family:Segoe UI,Roboto,Arial,sans-serif;background:var(--muted);padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
-  .order-box{background:#0062ca;padding:16px;border-radius:10px;color:#fff;width:420px;box-shadow:0 8px 30px rgba(0,0,0,.12)}
-  .order-box h2{margin:0 0 10px;text-align:center}
-  input,select,button{width:100%;padding:8px;margin:6px 0;border-radius:8px;border:none;font-size:14px;outline:none}
-  button{cursor:pointer}
-  .add-btn{background:var(--green);color:#fff;font-weight:700}
-  .tables-container{width:92%;max-width:980px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-  .table-box{background:#fff;padding:12px;border-radius:10px;width:320px;box-shadow:0 6px 18px rgba(0,0,0,.08);position:relative}
-  .table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .merged-tag{color:var(--blue);font-weight:700;margin-left:8px}
-  .person-box{background:#f6f6f6;padding:8px;border-radius:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px}
-  .person-title{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .paid-tag{color:var(--green);font-weight:700;margin-left:8px}
-  .item-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px;background:#fff;border-radius:6px}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .small{padding:6px 8px;border-radius:8px;border:none}
-  .serve-btn{background:var(--blue);color:#fff}
-  .cancel-btn{background:var(--red);color:#fff}
-  .merge-btn{background:#007bff;color:#fff}
-  .merge-bills-btn{background:#0056b3;color:#fff}
-  .split-btn{background:#ffc107;color:#222}
-  .move-btn{background:#6c757d;color:#fff}
-  .pay-btn{background:var(--green);color:#fff}
-  .note{font-size:12px;color:#222;opacity:.8}
-  .modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);display:none;justify-content:center;align-items:center;z-index:999}
-  .modal{background:#fff;padding:16px;border-radius:10px;width:320px;max-height:80%;overflow:auto}
-  @media(max-width:760px){ .table-box{width:92%} .order-box{width:92%} }
+:root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4}
+body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:var(--muted);padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.order-box{background:var(--primary);padding:18px;border-radius:12px;color:#fff;width:380px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.order-box h2{margin:0 0 10px;font-size:18px;text-align:center}
+input,select{width:100%;padding:9px;margin:6px 0;border-radius:8px;border:none;font-size:15px;outline:none}
+.add-btn{background:var(--green);color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none}
+.tables-container{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%}
+.table-box{background:#fff;padding:12px;border-radius:12px;width:340px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:640px;overflow:auto}
+.table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.table-total{font-weight:700}
+.person-box{background:#f0f0f0;padding:8px;border-radius:10px;margin-bottom:8px}
+.person-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.item-box{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;margin:6px 0;background:#fff}
+.pending{background:#fff7e6}
+.served{background:#e9f7ee}
+.paid{background:#d4edda}
+button.small{padding:6px 8px;border-radius:8px;border:none;cursor:pointer}
+.served-btn{background:var(--green);color:#fff}
+.cancel-btn{background:#dc3545;color:#fff}
+.merge-btn{background:#007bff;color:#fff}
+.split-btn{background:#ffc107;color:#222}
+.move-select{padding:6px;border-radius:6px}
+.controls-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;justify-content:center;align-items:center;z-index:10}
+.modal{background:#fff;padding:20px;border-radius:12px;width:320px;max-height:80%;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.modal h3{margin:0;text-align:center}
+.modal button{cursor:pointer}
+@media(max-width:760px){.order-box,.table-box{width:92%}.tables-container{flex-direction:column;align-items:center}}
 </style>
 </head>
 <body>
 
 <div class="order-box">
-  <h2><i class="fas fa-utensils"></i> POS — Fixed</h2>
-
-  <label>Table</label>
-  <select id="tableSelect"><option value="" disabled selected>Select table</option></select>
-
-  <label>Description (person)</label>
-  <input id="descriptionInput" placeholder="e.g. John / Veggie" />
-
-  <label>Type</label>
-  <select id="typeSelect">
-    <option value="" disabled selected>Select type</option>
-    <option value="food">Food</option>
-    <option value="drink">Drink</option>
-  </select>
-
-  <label>Item</label>
-  <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
-
-  <label>Quantity</label>
-  <input id="quantityInput" type="number" min="1" value="1" />
-
-  <button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
-  <div class="note">Merge = combine whole tables. Merge Bills = combine people inside same table.</div>
+<h2><i class="fas fa-utensils"></i> Waiter POS</h2>
+<label>Table</label>
+<select id="tableSelect"><option value="" disabled selected>Select table</option></select>
+<label>Description</label>
+<input id="description" placeholder="e.g. John / Veggie" />
+<label>Type</label>
+<select id="typeSelect"><option value="" disabled selected>Select type</option><option value="food">Food</option><option value="drink">Drink</option></select>
+<label>Item</label>
+<select id="itemSelect"><option value="" disabled selected>Select item</option></select>
+<select id="priceSelect" style="display:none"></select>
+<label>Quantity</label>
+<input id="quantity" type="number" min="1" value="1" />
+<div style="display:flex;gap:8px;align-items:center">
+<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
+</div>
 </div>
 
-<div class="tables-container" id="tablesContainer"></div>
+<div id="tablesContainer" class="tables-container"></div>
 
-<!-- Payment modal -->
+<!-- Payment Modal -->
 <div id="paymentModal" class="modal-bg">
-  <div class="modal">
-    <h3>Payment</h3>
-    <div id="paymentContent"></div>
-    <label>Method</label>
-    <select id="paymentMethod">
-      <option value="" disabled selected>Select method</option>
-      <option value="cash">Cash</option>
-      <option value="card">Card</option>
-      <option value="mobile">Mobile</option>
-    </select>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button id="confirmPayBtn" class="pay-btn" style="flex:1">Confirm Pay</button>
-      <button id="closePayBtn" style="flex:1">Close</button>
-    </div>
-  </div>
+<div class="modal">
+<h3>Payment</h3>
+<div id="paymentContent"></div>
+<label>Method</label>
+<select id="paymentMethod">
+<option value="" disabled selected>Select method</option>
+<option value="cash">Cash</option>
+<option value="card">Card</option>
+<option value="mobile">Mobile</option>
+</select>
+<button id="payBtn" style="background:var(--green);color:#fff">Paid</button>
+<button id="closeModalBtn">Close</button>
+</div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-/* === FIREBASE CONFIG - replace placeholders === */
+// ======= Firebase Config =======
 const firebaseConfig = {
-  apiKey: "YOUR_REAL_API_KEY",
-  authDomain: "YOUR_REAL_DOMAIN",
-  projectId: "YOUR_REAL_PROJECT_ID",
-  storageBucket: "YOUR_REAL_BUCKET",
-  messagingSenderId: "YOUR_REAL_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyC6VdctOXcT-qHaLJs1gEzwzVv5AdK5e0w",
+  authDomain: "pos-system-9a056.firebaseapp.com",
+  projectId: "pos-system-9a056",
+  storageBucket: "pos-system-9a056.appspot.com",
+  messagingSenderId: "701001104012",
+  appId: "1:701001104012:web:294967faec11a627c819a9"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const posDocRef = doc(db, "posData", "pos");
 
-/* DOM */
+// ======= DOM Elements =======
 const tableSelect = document.getElementById('tableSelect');
-const descriptionInput = document.getElementById('descriptionInput');
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
-const quantityInput = document.getElementById('quantityInput');
+const priceSelect = document.getElementById('priceSelect');
+const quantityInput = document.getElementById('quantity');
+const descriptionInput = document.getElementById('description');
 const addItemBtn = document.getElementById('addItemBtn');
 const tablesContainer = document.getElementById('tablesContainer');
 
 const paymentModal = document.getElementById('paymentModal');
 const paymentContent = document.getElementById('paymentContent');
 const paymentMethod = document.getElementById('paymentMethod');
-const confirmPayBtn = document.getElementById('confirmPayBtn');
-const closePayBtn = document.getElementById('closePayBtn');
+const payBtn = document.getElementById('payBtn');
+const closeModalBtn = document.getElementById('closeModalBtn');
 
-let posData = { openTables: [], closedTables: [] };
-let currentPayContext = null;
-
-/* Menu */
+// ======= Menu =======
 const menuItems = {
-  food: [{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
-  drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
+  food: [
+    { item: 'Pizza', price: [500] },
+    { item: 'Pasta', price: [300] },
+    { item: 'Burger', price: [200] }
+  ],
+  drink: [
+    { item: 'Soda', price: [50] },
+    { item: 'Juice', price: [80] },
+    { item: 'Water', price: [30] }
+  ]
 };
 
-/* Init table select 1..13 */
+// ======= Initialize Tables =======
+let tablesData = { openTables: [], closedTables: [] };
+const posDocRef = doc(db, 'posData', 'tables');
+
+// Fill table numbers
 for(let i=1;i<=13;i++){
-  const opt = document.createElement('option'); opt.value=i; opt.textContent=i;
+  const opt=document.createElement('option'); opt.value=i; opt.textContent=i;
   tableSelect.appendChild(opt);
 }
 
-/* Update item list */
-typeSelect.addEventListener('change', ()=>{
-  itemSelect.innerHTML = '<option value="" disabled selected>Select item</option>';
-  const list = menuItems[typeSelect.value] || [];
-  list.forEach(mi=>{
-    const o = document.createElement('option');
-    o.value = mi.item; o.dataset.price = mi.price; o.textContent = `${mi.item} - ${mi.price} mts`;
-    itemSelect.appendChild(o);
-  });
+// ======= Firestore Sync =======
+async function saveTables() {
+  await setDoc(posDocRef, tablesData);
+}
+
+onSnapshot(posDocRef, snap => {
+  const data = snap.data();
+  if (data) tablesData = data;
+  renderTables();
 });
 
-/* ---------- Helpers ---------- */
-function findOpenTable(tableNumber){ return posData.openTables.find(t => String(t.tableNumber) === String(tableNumber)); }
-function ensureTableExists(tableNumber){
-  let t = findOpenTable(tableNumber);
-  if(!t){
-    t = { id:'TABLE-'+Date.now(), tableNumber: String(tableNumber), timeOpened: new Date().toISOString(), timeClosed: null, people: [], tableTotal:0, merged:false };
-    posData.openTables.push(t);
-  }
-  return t;
-}
-
-/* Safe totals calculator (won't crash) */
-function recalcTableTotals(table){
-  if(!table) return;
-  table.people = Array.isArray(table.people) ? table.people : [];
-  table.people.forEach(p => {
-    p.orders = Array.isArray(p.orders) ? p.orders : [];
-    p.totalPrice = p.orders.reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
+// ======= Type/Item select =======
+typeSelect.addEventListener('change',()=>{
+  itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
+  (menuItems[typeSelect.value]||[]).forEach(m=>{
+    const opt=document.createElement('option'); opt.value=m.item; opt.textContent=m.item;
+    itemSelect.appendChild(opt);
   });
-  table.tableTotal = table.people.reduce((s,p)=> s + (Number(p.totalPrice)||0), 0);
-}
+  priceSelect.style.display='none';
+});
 
-/* ---------- Firestore save/load ---------- */
-async function savePOS(){
-  try{ await setDoc(posDocRef, posData); }
-  catch(e){ console.error('savePOS error', e); }
-}
-
-/* renderTables declared BEFORE onSnapshot to avoid "not defined" issues */
-function renderTables(){
-  tablesContainer.innerHTML = '';
-  // sort by numeric table number for stable order
-  const sorted = (posData.openTables || []).slice().sort((a,b)=> Number(a.tableNumber) - Number(b.tableNumber));
-  sorted.forEach(table=>{
-    // ensure arrays exist
-    table.people = Array.isArray(table.people) ? table.people : [];
-    recalcTableTotals(table);
-
-    const box = document.createElement('div'); box.className='table-box';
-
-    // header
-    const header = document.createElement('div'); header.className='table-header';
-    const left = document.createElement('div');
-    left.innerHTML = `<strong>Table ${table.tableNumber}</strong>` + (table.merged ? ` <span class="merged-tag">Merged</span>` : '');
-    const right = document.createElement('div'); right.innerHTML = `<strong>${Number(table.tableTotal||0)} mts</strong>`;
-    header.appendChild(left); header.appendChild(right);
-    box.appendChild(header);
-
-    // people
-    (table.people || []).forEach(person=>{
-      person.orders = Array.isArray(person.orders) ? person.orders : [];
-      const pbox = document.createElement('div'); pbox.className='person-box';
-
-      // title row
-      const title = document.createElement('div'); title.className='person-title';
-      const nameDiv = document.createElement('div');
-      nameDiv.innerHTML = `<strong>${person.description}</strong> - ${Number(person.totalPrice||0)} mts` + (person.payment ? ` <span class="paid-tag">Paid</span>` : '');
-      title.appendChild(nameDiv);
-
-      // move person button
-      const nameActions = document.createElement('div');
-      const movePersonBtn = document.createElement('button'); movePersonBtn.className='small move-btn'; movePersonBtn.textContent='Move';
-      movePersonBtn.title='Move this person to another table';
-      movePersonBtn.onclick = async ()=>{
-        const newTableNum = prompt('Enter target table number:');
-        if(!newTableNum) return;
-        let target = findOpenTable(newTableNum);
-        if(!target){
-          target = { id:'TABLE-'+Date.now(), tableNumber: String(newTableNum), timeOpened: new Date().toISOString(), timeClosed: null, people: [], tableTotal:0, merged:false };
-          posData.openTables.push(target);
-        }
-        // move person
-        table.people = table.people.filter(p => p !== person);
-        target.people.push(person);
-        recalcTableTotals(table); recalcTableTotals(target);
-        if(!table.people.length) posData.openTables = posData.openTables.filter(t=>t!==table);
-        await savePOS();
-      };
-      nameActions.appendChild(movePersonBtn);
-      title.appendChild(nameActions);
-
-      pbox.appendChild(title);
-
-      // orders
-      (person.orders || []).forEach(order=>{
-        const row = document.createElement('div'); row.className='item-row';
-        const leftInfo = document.createElement('div');
-        leftInfo.textContent = `${order.item} x${order.quantity} - ${ (Number(order.price)||0) * (Number(order.quantity)||1) } mts`;
-        row.appendChild(leftInfo);
-
-        const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
-
-        if(order.status !== 'served'){
-          const serveBtn = document.createElement('button'); serveBtn.className='small serve-btn'; serveBtn.textContent='Serve';
-          serveBtn.onclick = async ()=>{
-            order.status = 'served';
-            await savePOS();
-          };
-          actions.appendChild(serveBtn);
-        }
-
-        const cancelBtn = document.createElement('button'); cancelBtn.className='small cancel-btn'; cancelBtn.textContent='Cancel';
-        cancelBtn.onclick = async ()=>{
-          person.orders = (person.orders || []).filter(o => o !== order);
-          person.totalPrice = (person.orders || []).reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
-          if(!person.orders.length){
-            table.people = (table.people || []).filter(p => p !== person);
-          }
-          recalcTableTotals(table);
-          if(!table.people.length) posData.openTables = posData.openTables.filter(t=>t!==table);
-          await savePOS();
-        };
-        actions.appendChild(cancelBtn);
-
-        row.appendChild(actions);
-        pbox.appendChild(row);
-      });
-
-      // pay per person (if any unpaid)
-      if((person.orders||[]).some(o => !o.paid)){
-        const payBtn = document.createElement('button'); payBtn.className='small pay-btn'; payBtn.textContent='Pay';
-        payBtn.onclick = ()=>{
-          currentPayContext = { table, person };
-          paymentContent.innerHTML = `<div><strong>${person.description}</strong> — ${Number(person.totalPrice||0)} mts</div>`;
-          paymentMethod.value = '';
-          paymentModal.style.display = 'flex';
-        };
-        pbox.appendChild(payBtn);
-      }
-
-      box.appendChild(pbox);
+itemSelect.addEventListener('change',()=>{
+  const menuItem=(menuItems[typeSelect.value]||[]).find(m=>m.item===itemSelect.value);
+  if(menuItem && menuItem.price.length>1){
+    priceSelect.innerHTML='<option value="" disabled selected>Select price</option>';
+    menuItem.price.forEach(p=>{
+      const opt=document.createElement('option'); opt.value=p; opt.textContent=p+' mts';
+      priceSelect.appendChild(opt);
     });
+    priceSelect.style.display='block';
+  } else priceSelect.style.display='none';
+});
 
-    // table controls
-    const controls = document.createElement('div'); controls.className='controls';
+// ======= Add Item =======
+addItemBtn.addEventListener('click', async()=>{
+  const tableNumber = tableSelect.value;
+  const type = typeSelect.value;
+  const itemName = itemSelect.value;
+  const price = priceSelect.style.display==='block' ? parseInt(priceSelect.value) : (menuItems[type]||[]).find(m=>m.item===itemName)?.price[0];
+  const qty = parseInt(quantityInput.value) || 1;
+  const desc = (descriptionInput.value||'Order').trim();
+  if(!tableNumber||!type||!itemName||!price||qty<1){alert('Select Table, Type, Item and Quantity'); return;}
 
-    // Merge Table (whole-table)
-    if(!table.merged && (posData.openTables||[]).length > 1){
-      const mergeBtn = document.createElement('button'); mergeBtn.className='small merge-btn'; mergeBtn.textContent='Merge Table';
-      mergeBtn.onclick = async ()=>{
-        const otherNum = prompt('Enter table number to merge with:');
-        if(!otherNum) return;
-        const other = posData.openTables.find(t => String(t.tableNumber) === String(otherNum) && t !== table);
-        if(!other){ alert('Invalid table'); return; }
-        table.people = (table.people||[]).concat(other.people||[]);
-        table.merged = true;
-        recalcTableTotals(table);
-        posData.openTables = posData.openTables.filter(t => t !== other);
-        await savePOS();
-      };
+  // Find table
+  let table = tablesData.openTables.find(t=>t.tableNumber==tableNumber);
+  if(!table){
+    table={ tableNumber, timeOpened:new Date().toISOString(), people:[], totalPrice:0, merged:false };
+    tablesData.openTables.push(table);
+  }
+
+  // Find person
+  let person = table.people.find(p=>p.description===desc);
+  if(!person){ person={ description:desc, orders:[], paid:false }; table.people.push(person); }
+
+  // Add order
+  person.orders.push({ item:itemName, type, price, quantity:qty, status:'pending', time:new Date().toISOString() });
+
+  // Recalculate totals
+  table.totalPrice = table.people.reduce((s,p)=>s+p.orders.reduce((sum,o)=>sum+o.price*o.quantity,0),0);
+
+  await saveTables();
+  quantityInput.value=1; descriptionInput.value='';
+  renderTables();
+});
+
+// ======= Render Tables =======
+function renderTables(){
+  tablesContainer.innerHTML='';
+  tablesData.openTables.forEach(table=>{
+    const box=document.createElement('div'); box.className='table-box';
+    box.innerHTML=`<div class="table-head">
+      <div><strong>Table ${table.tableNumber}</strong></div>
+      <div class="table-total">${table.totalPrice} mts</div>
+    </div>`;
+
+    // Merge/Split buttons
+    const controls=document.createElement('div'); controls.className='controls-row';
+    if(!table.merged && tablesData.openTables.length>1){
+      const mergeBtn=document.createElement('button'); mergeBtn.className='merge-btn small'; mergeBtn.textContent='Merge Table';
+      mergeBtn.onclick=()=>mergeTables(table);
       controls.appendChild(mergeBtn);
     }
-
-    // Split merged table (whole-table split)
-    if(table.merged && (table.people || []).length > 1){
-      const splitBtn = document.createElement('button'); splitBtn.className='small split-btn'; splitBtn.textContent='Split Table';
-      splitBtn.onclick = async ()=>{
-        (table.people || []).forEach(person=>{
-          let nextNum = 1;
-          while(posData.openTables.some(t => String(t.tableNumber) === String(nextNum))) nextNum++;
-          const newTable = { id:'TABLE-'+Date.now()+'-'+person.id, tableNumber: String(nextNum), timeOpened: table.timeOpened || new Date().toISOString(), timeClosed: null, people:[person], tableTotal: person.totalPrice || 0, merged:false };
-          posData.openTables.push(newTable);
-        });
-        posData.openTables = posData.openTables.filter(t => t !== table);
-        await savePOS();
-      };
+    if(table.merged){
+      const splitBtn=document.createElement('button'); splitBtn.className='split-btn small'; splitBtn.textContent='Split Table';
+      splitBtn.onclick=()=>splitTable(table);
       controls.appendChild(splitBtn);
     }
-
-    // Merge Bills inside table (combine people -> single person)
-    if((table.people || []).length > 1){
-      const mergeBills = document.createElement('button'); mergeBills.className='small merge-bills-btn'; mergeBills.textContent='Merge Bills';
-      mergeBills.onclick = async ()=>{
-        // safety checks
-        if(!Array.isArray(table.people) || table.people.length < 2){ alert('Nothing to merge'); return; }
-        const mergedPerson = { id:'PERSON-'+Date.now(), description:'Merged', orders: [], totalPrice:0, payment:null };
-        table.people.forEach(p => {
-          (p.orders || []).forEach(o => mergedPerson.orders.push(Object.assign({}, o)));
-        });
-        // ensure orders array exists
-        mergedPerson.orders = Array.isArray(mergedPerson.orders) ? mergedPerson.orders : [];
-        // compute totals
-        mergedPerson.totalPrice = mergedPerson.orders.reduce((s,o)=> s + (Number(o.price)||0) * (Number(o.quantity)||1), 0);
-        table.people = [mergedPerson];
-        table.merged = true;
-        recalcTableTotals(table);
-        await savePOS();
-      };
-      controls.appendChild(mergeBills);
-    }
-
-    // Split Bills (when single Merged person exists)
-    if((table.people || []).length === 1 && (table.people[0].description === 'Merged' || table.merged)){
-      const splitBills = document.createElement('button'); splitBills.className='small split-btn'; splitBills.textContent='Split Bills';
-      splitBills.onclick = async ()=>{
-        const merged = table.people[0];
-        const orig = Array.isArray(merged.orders) ? merged.orders : [];
-        // create one person per order (descriptions default)
-        const newPeople = orig.map((o,i) => ({
-          id:'PERSON-'+Date.now()+'-'+i,
-          description: 'Person '+(i+1),
-          orders: [ Object.assign({}, o) ],
-          totalPrice: (Number(o.price)||0) * (Number(o.quantity)||1),
-          payment: null
-        }));
-        table.people = newPeople;
-        table.merged = false;
-        recalcTableTotals(table);
-        await savePOS();
-      };
-      controls.appendChild(splitBills);
-    }
-
-    // Move table
-    const moveTableBtn = document.createElement('button'); moveTableBtn.className='small move-btn'; moveTableBtn.textContent='Move Table';
-    moveTableBtn.onclick = async ()=>{
-      const newNum = prompt('Enter new table number:');
-      if(!newNum) return;
-      if(posData.openTables.some(t => String(t.tableNumber) === String(newNum))){ alert('Table exists'); return; }
-      table.tableNumber = String(newNum);
-      await savePOS();
-    };
-    controls.appendChild(moveTableBtn);
-
     box.appendChild(controls);
+
+    // Render people
+    table.people.forEach(person=>{
+      const pDiv=document.createElement('div'); pDiv.className='person-box';
+      pDiv.innerHTML=`<strong>${person.description}</strong>`;
+      // Orders
+      person.orders.forEach((o,i)=>{
+        const orderDiv=document.createElement('div'); orderDiv.className='item-box '+o.status;
+        orderDiv.innerHTML=`${o.quantity}x ${o.item} (${o.type}) - ${o.price*o.quantity} mts
+          <div class="person-actions">
+            ${o.status!=='served'?'<button class="served-btn small">Serve</button>':''}
+            <button class="cancel-btn small">Cancel</button>
+          </div>`;
+        pDiv.appendChild(orderDiv);
+        // Serve
+        if(o.status!=='served') orderDiv.querySelector('.served-btn').onclick=async()=>{
+          o.status='served'; await saveTables(); renderTables();
+        };
+        // Cancel
+        orderDiv.querySelector('.cancel-btn').onclick=async()=>{
+          person.orders.splice(i,1);
+          if(person.orders.length===0) table.people = table.people.filter(p=>p!==person);
+          table.totalPrice = table.people.reduce((s,p)=>s+p.orders.reduce((sum,o)=>sum+o.price*o.quantity,0),0);
+          if(table.people.length===0) tablesData.openTables = tablesData.openTables.filter(t=>t!==table);
+          await saveTables(); renderTables();
+        };
+      });
+
+      // Payment per person
+      const payBtnPerson=document.createElement('button'); payBtnPerson.className='add-btn small'; payBtnPerson.textContent='Pay';
+      payBtnPerson.onclick=()=>showPayment(table, person);
+      pDiv.appendChild(payBtnPerson);
+
+      box.appendChild(pDiv);
+    });
+
     tablesContainer.appendChild(box);
   });
 }
 
-/* ---------- Firestore listener (after renderTables is declared) ---------- */
-onSnapshot(posDocRef, snap=>{
-  posData = snap.exists() ? (snap.data() || {openTables:[],closedTables:[]}) : {openTables:[],closedTables:[]};
-  posData.openTables = Array.isArray(posData.openTables) ? posData.openTables : [];
-  posData.closedTables = Array.isArray(posData.closedTables) ? posData.closedTables : [];
-  renderTables();
-});
+// ======= Merge/Split Logic =======
+async function mergeTables(targetTable){
+  const mergedPeople = tablesData.openTables.reduce((arr,t)=>arr.concat(t.people),[]);
+  targetTable.people = [{ description: mergedPeople.map(p=>p.description).join(' + '), orders: mergedPeople.flatMap(p=>p.orders), paid:false }];
+  targetTable.merged=true;
+  tablesData.openTables = [targetTable];
+  targetTable.totalPrice = targetTable.people[0].orders.reduce((s,o)=>s+o.price*o.quantity,0);
+  await saveTables(); renderTables();
+}
 
-/* ---------- Add item handler ---------- */
-addItemBtn.addEventListener('click', async ()=>{
-  const tableNum = tableSelect.value;
-  const desc = (descriptionInput.value || 'Customer').trim();
-  const type = typeSelect.value;
-  const itemName = itemSelect.value;
-  const option = itemSelect.selectedOptions && itemSelect.selectedOptions[0];
-  const price = option ? Number(option.dataset.price) : null;
-  const qty = Math.max(1, parseInt(quantityInput.value) || 1);
+async function splitTable(table){
+  table.merged=false;
+  // After split, create individual tables for each original person
+  const newTables = table.people.map(p=>{
+    return { tableNumber: table.tableNumber, timeOpened:new Date().toISOString(), people:[p], totalPrice:p.orders.reduce((s,o)=>s+o.price*o.quantity,0), merged:false };
+  });
+  tablesData.openTables = tablesData.openTables.concat(newTables.filter(t=>t!==table));
+  tablesData.openTables = tablesData.openTables.filter(t=>t!==table);
+  await saveTables(); renderTables();
+}
 
-  if(!tableNum || !type || !itemName || !isFinite(price)){
-    alert('Select table, type and item.');
-    return;
-  }
+// ======= Payment =======
+function showPayment(table, person){
+  paymentModal.style.display='flex';
+  paymentContent.innerHTML=`<div><strong>${person.description}</strong> - ${person.orders.reduce((s,o)=>s+o.price*o.quantity,0)} mts</div>`;
+  payBtn.onclick=async()=>{
+    const method=paymentMethod.value;
+    if(!method){ alert('Select payment method'); return; }
+    person.paid=true; person.orders.forEach(o=>o.status='served');
+    table.people = table.people.filter(p=>!p.paid);
+    if(table.people.length===0) tablesData.openTables = tablesData.openTables.filter(t=>t!==table);
+    await saveTables(); paymentModal.style.display='none'; renderTables();
+  };
+  closeModalBtn.onclick=()=>{ paymentModal.style.display='none'; };
+}
 
-  const table = ensureTableExists(tableNum);
-  let person = (table.people || []).find(p => p.description === desc);
-  if(!person){
-    person = { id:'PERSON-'+Date.now(), description: desc, orders: [], totalPrice:0, payment:null };
-    table.people.push(person);
-  }
-
-  person.orders = Array.isArray(person.orders) ? person.orders : [];
-  person.orders.push({ id:'ORDER-'+Date.now(), item:itemName, price, quantity:qty, status:'pending', paid:false });
-  recalcTableTotals(table);
-  await savePOS();
-
-  quantityInput.value = 1; descriptionInput.value = '';
-});
-
-/* ---------- Payment flow ---------- */
-closePayBtn.onclick = ()=>{ paymentModal.style.display = 'none'; currentPayContext = null; };
-
-confirmPayBtn.onclick = async ()=>{
-  if(!currentPayContext){ alert('No payment context'); paymentModal.style.display='none'; return; }
-  const method = paymentMethod.value;
-  if(!method){ alert('Select payment method'); return; }
-
-  const { table, person } = currentPayContext;
-  // mark paid and served
-  (person.orders || []).forEach(o => { o.paid = true; o.status = 'served'; });
-  person.payment = { method, amount: Number(person.totalPrice || 0), time: new Date().toISOString() };
-
-  // remove person if all paid
-  if((person.orders || []).every(o => o.paid)){
-    table.people = (table.people || []).filter(p => p !== person);
-  }
-
-  // if table empty -> move to closedTables
-  if(!(table.people || []).length){
-    table.timeClosed = new Date().toISOString();
-    posData.closedTables = Array.isArray(posData.closedTables) ? posData.closedTables : [];
-    posData.closedTables.push(table);
-    posData.openTables = posData.openTables.filter(t => t !== table);
-  }
-
-  // recalc totals for all open tables
-  (posData.openTables || []).forEach(t => recalcTableTotals(t));
-  await savePOS();
-
-  // UI: close modal and re-render (onSnapshot will re-render too, but do it locally for instant feedback)
-  paymentModal.style.display = 'none';
-  currentPayContext = null;
-  renderTables();
-};
-
-/* ---------- Ensure doc exists initially ---------- */
-(async function ensureDoc(){
-  try{ await setDoc(posDocRef, posData, { merge: true }); }
-  catch(e){ console.warn('ensure doc warning', e); }
-})();
 </script>
 </body>
 </html>
