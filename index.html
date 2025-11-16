@@ -1,176 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>POS with Grouped Orders</title>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<title>POS System — Simplified</title>
 <style>
-body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#f4f4f4;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px}
-.order-box{background:#0062ca;padding:18px;border-radius:12px;color:#fff;width:360px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
-.order-box h2{text-align:center;margin:0 0 12px;font-size:18px}
-input,select{width:100%;padding:9px;margin:6px 0;border-radius:8px;border:none;font-size:15px;outline:none}
-.add-btn{background:#28a745;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none;width:100%}
-.orders-container{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;margin-top:20px}
-.order-group{background:#fff;padding:10px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.1)}
-.order-group h4{margin:0 0 8px 0}
-button.small{padding:5px 8px;border-radius:6px;border:none;cursor:pointer;background:#dc3545;color:#fff;margin-left:6px}
-button.served-btn{background:#28a745;color:#fff;margin-left:6px}
-button.pay-btn{background:#007bff;color:#fff;margin-left:6px}
+body{font-family:Segoe UI,sans-serif;padding:18px;display:flex;flex-direction:column;gap:12px;background:#f4f4f4;}
+.order-group{background:#fff;padding:12px;margin-bottom:12px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+button{padding:6px 10px;margin-right:4px;border:none;border-radius:6px;cursor:pointer;}
+.served-btn{background:#28a745;color:#fff;}
+.cancel-btn{background:#dc3545;color:#fff;}
+.pay-btn{background:#007bff;color:#fff;}
+.problem-btn{background:#ffc107;color:#222;}
+textarea{width:100%;border-radius:6px;padding:6px;}
+#problemModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;}
+#problemModal div{background:#fff;padding:20px;border-radius:12px;width:300px;display:flex;flex-direction:column;gap:10px;}
 </style>
 </head>
 <body>
 
-<div class="order-box">
-<h2><i class="fas fa-utensils"></i> POS</h2>
+<h2>POS System — Simplified</h2>
+
+<!-- Order Form -->
 <label>Description</label>
-<input type="text" id="descriptionInput" placeholder="e.g. Table 1, John">
+<input id="descInput" placeholder="e.g. Table 1 / John">
 <label>Type</label>
 <select id="typeSelect">
-  <option value="" disabled selected>Select type</option>
   <option value="food">Food</option>
   <option value="drink">Drink</option>
 </select>
 <label>Item</label>
-<select id="itemSelect"><option value="" disabled selected>Select item</option></select>
+<select id="itemSelect"></select>
 <label>Quantity</label>
-<input type="number" id="quantity" min="1" value="1">
-<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Order</button>
+<input type="number" id="qtyInput" value="1" min="1">
+<button id="addBtn">Add Order</button>
+
+<h3>Placed Orders</h3>
+<div id="placedContainer"></div>
+
+<h3>Served Orders</h3>
+<div id="servedContainer"></div>
+
+<h3>Paid Orders</h3>
+<div id="paidContainer"></div>
+
+<!-- Problem Modal -->
+<div id="problemModal">
+  <div>
+    <h3>Report a Problem</h3>
+    <textarea id="problemText" rows="5" placeholder="Describe the problem..."></textarea>
+    <button id="saveProblemBtn" style="background:#28a745;color:#fff;">Save</button>
+    <button id="closeProblemBtn" style="background:#dc3545;color:#fff;">Close</button>
+  </div>
 </div>
 
-<h3>Open Orders</h3>
-<div id="openContainer" class="orders-container"></div>
-<h3>Served Orders</h3>
-<div id="servedContainer" class="orders-container"></div>
-<h3>Paid Orders</h3>
-<div id="paidContainer" class="orders-container"></div>
-
 <script>
-const menuItems = {
-  food: [{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
-  drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
-};
-
 const typeSelect = document.getElementById('typeSelect');
 const itemSelect = document.getElementById('itemSelect');
-const quantityInput = document.getElementById('quantity');
-const addItemBtn = document.getElementById('addItemBtn');
-const descriptionInput = document.getElementById('descriptionInput');
+const descInput = document.getElementById('descInput');
+const qtyInput = document.getElementById('qtyInput');
+const addBtn = document.getElementById('addBtn');
 
-const openContainer = document.getElementById('openContainer');
+const placedContainer = document.getElementById('placedContainer');
 const servedContainer = document.getElementById('servedContainer');
 const paidContainer = document.getElementById('paidContainer');
 
-let openOrders = [];
+const problemModal = document.getElementById('problemModal');
+const problemText = document.getElementById('problemText');
+const saveProblemBtn = document.getElementById('saveProblemBtn');
+const closeProblemBtn = document.getElementById('closeProblemBtn');
+
+const menuItems = {
+  food:['Pizza','Pasta','Burger'],
+  drink:['Soda','Juice','Water']
+};
+
+let placedOrders = [];
 let servedOrders = [];
 let paidOrders = [];
 
-typeSelect.addEventListener('change',()=>{
-  itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
-  (menuItems[typeSelect.value]||[]).forEach(m=>{
+typeSelect.addEventListener('change',()=> {
+  itemSelect.innerHTML = '';
+  menuItems[typeSelect.value].forEach(i=>{
     const opt=document.createElement('option');
-    opt.value=m.item; opt.textContent=m.item;
+    opt.value=i; opt.textContent=i;
     itemSelect.appendChild(opt);
   });
 });
 
-function logAllOrders(){
-  console.clear();
-  console.log('Open Orders:'); console.table(openOrders);
-  console.log('Served Orders:'); console.table(servedOrders);
-  console.log('Paid Orders:'); console.table(paidOrders);
+addBtn.addEventListener('click',()=>{
+  const desc = descInput.value.trim() || 'Order';
+  const item = itemSelect.value;
+  const type = typeSelect.value;
+  const qty = parseInt(qtyInput.value) || 1;
+  const price = 100; // simplified price
+
+  if(!item) { alert('Select item'); return; }
+
+  placedOrders.push({description:desc, type, item, quantity:qty, price, time:new Date().toLocaleTimeString()});
+  console.log('Placed Orders:', placedOrders);
+  renderAll();
+});
+
+function renderGroup(container, ordersArray, status){
+  container.innerHTML='';
+  const groups = {};
+  ordersArray.forEach(o=>{
+    if(!groups[o.description]) groups[o.description]=[];
+    groups[o.description].push(o);
+  });
+
+  Object.keys(groups).forEach(desc=>{
+    const group = groups[desc];
+    const div=document.createElement('div'); div.className='order-group';
+    let html=`<h4>${desc}</h4>`;
+    group.forEach(o=>{ html+=`<div>${o.type}: ${o.item} x${o.quantity} - ${o.price*o.quantity} mts</div>`; });
+
+    // Buttons
+    if(status==='placed'){
+      html+=`<div>
+               <button class="cancel-btn">Cancel</button>
+               <button class="served-btn">Served</button>
+               <button class="problem-btn">Problem</button>
+             </div>`;
+    } else if(status==='served'){
+      html+=`<div>
+               <button class="pay-btn">Pay</button>
+               <button class="problem-btn">Problem</button>
+             </div>`;
+    }
+
+    div.innerHTML=html;
+
+    // Button functionality
+    div.querySelector('.cancel-btn')?.addEventListener('click',()=> {
+      const idx = ordersArray.indexOf(group[0]);
+      ordersArray.splice(idx, group.length);
+      renderAll();
+    });
+    div.querySelector('.served-btn')?.addEventListener('click',()=> {
+      servedOrders.push(...group);
+      ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
+      renderAll();
+    });
+    div.querySelector('.pay-btn')?.addEventListener('click',()=>{
+      paidOrders.push(...group.map(o=>({item:o.item, quantity:o.quantity, price:o.price, time:o.time})));
+      ordersArray.splice(ordersArray.indexOf(group[0]), group.length);
+      console.log('Receipt:', paidOrders[paidOrders.length-group.length]);
+      renderAll();
+    });
+    div.querySelectorAll('.problem-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        problemModal.style.display='flex';
+        saveProblemBtn.onclick = ()=>{
+          console.log(`Problem reported for ${desc}:`, problemText.value);
+          problemText.value='';
+          problemModal.style.display='none';
+        };
+        closeProblemBtn.onclick = ()=>{
+          problemText.value='';
+          problemModal.style.display='none';
+        };
+      });
+    });
+
+    container.appendChild(div);
+  });
 }
 
-function renderOrders(){
-  function renderGroup(container, ordersArray, status){
-    container.innerHTML='';
-    // Group by description
-    const groups = {};
-    ordersArray.forEach(o=>{
-      if(!groups[o.description]) groups[o.description]=[];
-      groups[o.description].push(o);
-    });
-
-    Object.keys(groups).forEach(desc=>{
-      const group = groups[desc];
-      const div=document.createElement('div'); div.className='order-group';
-      let html=`<h4>${desc}</h4>`;
-      group.forEach(o=>{ html+=`<div>${o.type}: ${o.item} x${o.quantity} - ${o.price*o.quantity} mts</div>`; });
-      // Buttons
-      if(status==='open'){
-        html+=`<div>
-                 <button class="small">Cancel</button>
-                 <button class="served-btn">Served</button>
-               </div>`;
-      } else if(status==='served'){
-        html+=`<div><button class="pay-btn">Pay</button></div>`;
-      }
-      div.innerHTML=html;
-
-      if(status==='open'){
-        div.querySelector('.small').onclick=()=>{ 
-          const idxs = ordersArray.reduce((arr,o,i)=>o.description===desc?[...arr,i]:arr,[]);
-          idxs.reverse().forEach(i=>ordersArray.splice(i,1));
-          renderOrders(); logAllOrders();
-        };
-        div.querySelector('.served-btn').onclick=()=>{
-          const idxs = ordersArray.reduce((arr,o,i)=>o.description===desc?[...arr,i]:arr,[]);
-          idxs.reverse().forEach(i=>{
-            const o=ordersArray.splice(i,1)[0];
-            servedOrders.push(o);
-          });
-          renderOrders(); logAllOrders();
-        };
-      } else if(status==='served'){
-        div.querySelector('.pay-btn').onclick=()=>{
-          const idxs = ordersArray.reduce((arr,o,i)=>o.description===desc?[...arr,i]:arr,[]);
-          const receipt = [];
-          idxs.reverse().forEach(i=>{
-            const o = ordersArray.splice(i,1)[0];
-            // Keep only essential info
-            const cleaned = {
-              item: o.item,
-              type: o.type,
-              quantity: o.quantity,
-              price: o.price,
-              time: o.time
-            };
-            paidOrders.push(cleaned);
-            receipt.push(cleaned);
-          });
-          console.log(`=== RECEIPT: ${desc} ===`);
-          receipt.forEach(r=>console.log(`${r.type}: ${r.item} x${r.quantity} - ${r.price*r.quantity} mts`));
-          console.log('Total:', receipt.reduce((s,r)=>s+r.price*r.quantity,0),'mts');
-          console.log('Time:', new Date().toLocaleString());
-          console.log('====================');
-          renderOrders(); logAllOrders();
-        };
-      }
-
-      container.appendChild(div);
-    });
-  }
-
-  renderGroup(openContainer, openOrders,'open');
+function renderAll(){
+  renderGroup(placedContainer, placedOrders,'placed');
   renderGroup(servedContainer, servedOrders,'served');
   renderGroup(paidContainer, paidOrders,'paid');
 }
 
-addItemBtn.addEventListener('click',()=>{
-  const type = typeSelect.value;
-  const item = itemSelect.value;
-  const qty = parseInt(quantityInput.value)||1;
-  const price = (menuItems[type]||[]).find(m=>m.item===item)?.price;
-  const description = (descriptionInput.value||'No Description').trim();
-  if(!type || !item || !price){ alert('Select type and item'); return; }
-
-  const newOrder = {id:'ORDER-'+Date.now(), type, item, quantity:qty, price, description, time:new Date().toISOString()};
-  openOrders.push(newOrder);
-  quantityInput.value=1; descriptionInput.value='';
-  renderOrders();
-  logAllOrders();
-});
 </script>
-
 </body>
 </html>
