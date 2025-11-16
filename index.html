@@ -1,284 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>POS Manager</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simple POS Tracker</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
-:root{--primary:#0062ca;--green:#28a745;--muted:#f4f4f4}
-body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:var(--muted);padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
-.order-box{background:var(--primary);padding:18px;border-radius:12px;color:#fff;width:380px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
-.order-box h2{margin:0 0 10px;font-size:18px;text-align:center}
+body{font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#f4f4f4;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.order-box{background:#0062ca;padding:18px;border-radius:12px;color:#fff;width:360px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.order-box h2{text-align:center;margin:0 0 12px;font-size:18px}
 input,select{width:100%;padding:9px;margin:6px 0;border-radius:8px;border:none;font-size:15px;outline:none}
-.add-btn{background:var(--green);color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none}
-.tables-container{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%}
-.table-box{background:#fff;padding:12px;border-radius:12px;width:340px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:640px;overflow:auto}
-.table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.table-total{font-weight:700}
-.person-box{background:#f0f0f0;padding:8px;border-radius:10px;margin-bottom:8px}
-.item-box{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;margin:6px 0;background:#fff}
-.pending{background:#fff7e6}
-.served{background:#e9f7ee}
-.paid{background:#d4edda}
-button.small{padding:6px 8px;border-radius:8px;border:none;cursor:pointer}
-.served-btn{background:var(--green);color:#fff}
-.cancel-btn{background:#dc3545;color:#fff}
-.merge-btn{background:#007bff;color:#fff}
-.split-btn{background:#ffc107;color:#222}
-.move-select{padding:6px;border-radius:6px}
-.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;justify-content:center;align-items:center}
-.modal{background:#fff;padding:20px;border-radius:12px;width:320px;max-height:80%;overflow:auto;display:flex;flex-direction:column;gap:12px}
-.modal h3{margin:0;text-align:center}
-.modal button{cursor:pointer}
-@media(max-width:760px){.order-box,.table-box{width:92%}.tables-container{flex-direction:column;align-items:center}}
+.add-btn{background:#28a745;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;border:none;width:100%}
+.orders-container{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.order-item{background:#fff;padding:10px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+button.small{padding:5px 8px;border-radius:6px;border:none;cursor:pointer;background:#dc3545;color:#fff}
 </style>
 </head>
 <body>
 
 <div class="order-box">
-<h2><i class="fas fa-utensils"></i> Waiter POS</h2>
-<label>Table</label>
-<select id="tableSelect"><option value="" disabled selected>Select table</option></select>
-<label>Description</label>
-<input id="description" placeholder="e.g. John / Veggie" />
+<h2><i class="fas fa-utensils"></i> Simple POS Tracker</h2>
 <label>Type</label>
-<select id="typeSelect"><option value="" disabled selected>Select type</option><option value="food">Food</option><option value="drink">Drink</option></select>
+<select id="typeSelect">
+  <option value="" disabled selected>Select type</option>
+  <option value="food">Food</option>
+  <option value="drink">Drink</option>
+</select>
 <label>Item</label>
 <select id="itemSelect"><option value="" disabled selected>Select item</option></select>
 <label>Quantity</label>
-<input id="quantity" type="number" min="1" value="1" />
-<div style="display:flex;gap:8px;align-items:center">
-<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Item</button>
-</div>
+<input type="number" id="quantity" min="1" value="1">
+<button id="addItemBtn" class="add-btn"><i class="fas fa-plus"></i> Add Order</button>
 </div>
 
-<div id="tablesContainer" class="tables-container"></div>
-
-<!-- Payment Modal -->
-<div id="paymentModal" class="modal-bg">
-<div class="modal">
-<h3>Payment</h3>
-<div id="paymentContent"></div>
-<label>Method</label>
-<select id="paymentMethod">
-<option value="" disabled selected>Select method</option>
-<option value="cash">Cash</option>
-<option value="card">Card</option>
-<option value="mobile">Mobile</option>
-</select>
-<button id="payBtn" style="background:var(--green);color:#fff">Paid</button>
-<button id="closeModalBtn">Close</button>
-</div>
-</div>
+<div id="ordersContainer" class="orders-container"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC6VdctOXcT-qHaLJs1gEzwzVv5AdK5e0w",
-  authDomain: "pos-system-9a056.firebaseapp.com",
-  projectId: "pos-system-9a056",
-  storageBucket: "pos-system-9a056.appspot.com",
-  messagingSenderId: "701001104012",
-  appId: "1:701001104012:web:294967faec11a627c819a9"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const tableSelect=document.getElementById('tableSelect');
-const typeSelect=document.getElementById('typeSelect');
-const itemSelect=document.getElementById('itemSelect');
-const quantityInput=document.getElementById('quantity');
-const descriptionInput=document.getElementById('description');
-const addItemBtn=document.getElementById('addItemBtn');
-const tablesContainer=document.getElementById('tablesContainer');
-
-const paymentModal=document.getElementById('paymentModal');
-const paymentContent=document.getElementById('paymentContent');
-const paymentMethod=document.getElementById('paymentMethod');
-const payBtn=document.getElementById('payBtn');
-const closeModalBtn=document.getElementById('closeModalBtn');
-
-const menuItems={
-  food:[{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
-  drink:[{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
+const menuItems = {
+  food: [{item:'Pizza',price:500},{item:'Pasta',price:300},{item:'Burger',price:200}],
+  drink: [{item:'Soda',price:50},{item:'Juice',price:80},{item:'Water',price:30}]
 };
 
-let posData={ openTables:[], closedTables:[] };
-const posDocRef=doc(db,'posData','tables');
+const typeSelect = document.getElementById('typeSelect');
+const itemSelect = document.getElementById('itemSelect');
+const quantityInput = document.getElementById('quantity');
+const addItemBtn = document.getElementById('addItemBtn');
+const ordersContainer = document.getElementById('ordersContainer');
 
-for(let i=1;i<=13;i++){
-  const opt=document.createElement('option'); opt.value=i; opt.textContent=i;
-  tableSelect.appendChild(opt);
-}
+let orders = [];
+const ordersDocRef = doc(db,'posData','orders');
 
 typeSelect.addEventListener('change',()=>{
   itemSelect.innerHTML='<option value="" disabled selected>Select item</option>';
   (menuItems[typeSelect.value]||[]).forEach(m=>{
-    const opt=document.createElement('option'); opt.value=m.item; opt.textContent=m.item;
+    const opt=document.createElement('option');
+    opt.value=m.item; opt.textContent=m.item;
     itemSelect.appendChild(opt);
   });
 });
 
-async function savePos(){ await setDoc(posDocRef,posData); }
+async function saveOrders(){ await setDoc(ordersDocRef,{orders}); }
 
-onSnapshot(posDocRef,snap=>{ posData = snap.data()||{openTables:[],closedTables:[]}; renderTables(); });
-
-addItemBtn.addEventListener('click', async()=>{
-  const tableNum = tableSelect.value;
-  const desc = (descriptionInput.value||'Order').trim();
+addItemBtn.addEventListener('click',async()=>{
   const type = typeSelect.value;
-  const itemName = itemSelect.value;
+  const item = itemSelect.value;
   const qty = parseInt(quantityInput.value)||1;
-  const price = (menuItems[type]||[]).find(m=>m.item===itemName)?.price;
+  const price = (menuItems[type]||[]).find(m=>m.item===item)?.price;
+  if(!type || !item || !price){ alert('Select type and item'); return; }
 
-  if(!tableNum||!desc||!type||!itemName||!price){ alert('Fill all fields'); return; }
-
-  let table = posData.openTables.find(t=>t.table==tableNum);
-  if(!table){ table={table:tableNum, people:[], mergedFrom:[], timeCreated:new Date().toISOString()}; posData.openTables.push(table); }
-
-  let person = table.people.find(p=>p.description===desc);
-  if(!person){
-    person={description:desc, orders:[], table:tableNum, originalTable:tableNum, id:'PERSON-'+Date.now()};
-    table.people.push(person);
-  }
-
-  person.orders.push({id:'ITEM-'+Date.now(), item:itemName, price, quantity:qty, status:'pending'});
-  await savePos();
-  quantityInput.value=1; descriptionInput.value='';
-  renderTables();
+  const newOrder = {id:'ORDER-'+Date.now(), type, item, quantity:qty, price, time:new Date().toISOString()};
+  orders.push(newOrder);
+  await saveOrders();
+  quantityInput.value=1;
+  renderOrders();
 });
 
-function renderTables(){
-  tablesContainer.innerHTML='';
-  posData.openTables.forEach(table=>{
-    const box=document.createElement('div'); box.className='table-box';
-
-    // table checkbox
-    const mergeCheckbox=document.createElement('input'); mergeCheckbox.type='checkbox';
-    mergeCheckbox.style.marginRight='6px'; mergeCheckbox.checked=table.selected||false;
-    mergeCheckbox.onchange=()=>{ table.selected=mergeCheckbox.checked; renderTables(); };
-
-    const tableTotal=table.people.reduce((s,p)=>s+p.orders.reduce((sum,o)=>sum+o.price*o.quantity,0),0);
-    const tableHeader=document.createElement('div'); tableHeader.className='table-head';
-    tableHeader.innerHTML=`<strong>Table ${table.table}</strong> <span class="table-total">${tableTotal} mts</span>`;
-    tableHeader.prepend(mergeCheckbox); box.appendChild(tableHeader);
-
-    // Merge/Split buttons
-    const selectedTables = posData.openTables.filter(t=>t.selected);
-    if(selectedTables.length>=2){
-      const mergeBtn=document.createElement('button'); mergeBtn.className='merge-btn small'; mergeBtn.textContent='Merge Selected Tables';
-      mergeBtn.onclick=async()=>{
-        const mergedTable={table:'M-'+Date.now(), people:[], mergedFrom:[], timeCreated:new Date().toISOString()};
-        selectedTables.forEach(t=>{
-          t.people.forEach(p=>mergedTable.people.push(p));
-          mergedTable.mergedFrom.push(t.table);
-          posData.openTables.splice(posData.openTables.indexOf(t),1);
-        });
-        posData.openTables.push(mergedTable);
-        await savePos(); renderTables();
-      };
-      box.appendChild(mergeBtn);
-    }
-
-    if(table.mergedFrom && table.mergedFrom.length>0){
-      const splitBtn=document.createElement('button'); splitBtn.className='split-btn small'; splitBtn.textContent='Split Table';
-      splitBtn.onclick=async()=>{
-        table.mergedFrom.forEach(orig=>{
-          const origTable={table:orig, people:table.people.filter(p=>p.originalTable==orig), mergedFrom:[], timeCreated:new Date().toISOString()};
-          posData.openTables.push(origTable);
-        });
-        posData.openTables.splice(posData.openTables.indexOf(table),1);
-        await savePos(); renderTables();
-      };
-      box.appendChild(splitBtn);
-    }
-
-    // People and orders
-    table.people.forEach((p,pi)=>{
-      const pBox=document.createElement('div'); pBox.className='person-box';
-      pBox.innerHTML=`<strong>${p.description}</strong>`;
-
-      p.orders.forEach((o,oi)=>{
-        const oBox=document.createElement('div'); oBox.className='item-box';
-        oBox.innerHTML=`${o.item} x${o.quantity} - ${o.price*o.quantity} mts`;
-
-        const serveBtn=document.createElement('button'); serveBtn.className='served-btn small'; serveBtn.textContent='Serve';
-        serveBtn.onclick=async()=>{ o.status='served'; await savePos(); renderTables(); };
-        if(o.status==='served') serveBtn.style.display='none';
-
-        const cancelBtn=document.createElement('button'); cancelBtn.className='cancel-btn small'; cancelBtn.textContent='Cancel';
-        cancelBtn.onclick=async()=>{
-          p.orders.splice(oi,1);
-          if(p.orders.length===0) table.people.splice(pi,1);
-          await savePos(); renderTables();
-        };
-
-        oBox.appendChild(serveBtn); oBox.appendChild(cancelBtn); pBox.appendChild(oBox);
-      });
-
-      // Move person
-      const moveSelect=document.createElement('select'); moveSelect.className='move-select';
-      moveSelect.innerHTML='<option value="" disabled selected>Move to table</option>';
-      posData.openTables.filter(t2=>t2.table!=table.table).forEach(t2=>{
-        const opt=document.createElement('option'); opt.value=t2.table; opt.textContent=`Table ${t2.table}`; moveSelect.appendChild(opt);
-      });
-      const moveBtn=document.createElement('button'); moveBtn.textContent='Move'; moveBtn.className='add-btn small';
-      moveBtn.onclick=async()=>{
-        const newTableNum=moveSelect.value; if(!newTableNum) return alert('Select table');
-        let newTable=posData.openTables.find(t2=>t2.table==newTableNum);
-        if(!newTable){ newTable={table:newTableNum, people:[], mergedFrom:[], timeCreated:new Date().toISOString()}; posData.openTables.push(newTable); }
-        p.table=newTableNum;
-        newTable.people.push(p);
-        table.people.splice(pi,1);
-        await savePos(); renderTables();
-      };
-      pBox.appendChild(moveSelect); pBox.appendChild(moveBtn);
-
-      // Change table
-      const changeSelect=document.createElement('select'); changeSelect.className='move-select';
-      changeSelect.innerHTML='<option value="" disabled selected>Change table</option>';
-      posData.openTables.filter(t2=>t2.table!=table.table).forEach(t2=>{
-        const opt=document.createElement('option'); opt.value=t2.table; opt.textContent=`Table ${t2.table}`; changeSelect.appendChild(opt);
-      });
-      const changeBtn=document.createElement('button'); changeBtn.textContent='Change Table'; changeBtn.className='add-btn small';
-      changeBtn.onclick=async()=>{ const newTableNum=changeSelect.value; if(!newTableNum) return alert('Select table'); p.table=newTableNum; await savePos(); renderTables(); };
-      pBox.appendChild(changeSelect); pBox.appendChild(changeBtn);
-
-      // Payment per person
-      const payPersonBtn=document.createElement('button'); payPersonBtn.textContent='Pay'; payPersonBtn.className='add-btn small';
-      payPersonBtn.onclick=()=>showPayment(table, p); pBox.appendChild(payPersonBtn);
-
-      box.appendChild(pBox);
-    });
-
-    tablesContainer.appendChild(box);
+function renderOrders(){
+  ordersContainer.innerHTML='';
+  orders.forEach((o,index)=>{
+    const div=document.createElement('div');
+    div.className='order-item';
+    div.innerHTML=`<div>${o.type}: ${o.item} x${o.quantity} - ${o.price*o.quantity} mts</div>
+                   <button class="small">Cancel</button>`;
+    div.querySelector('button').onclick=async()=>{
+      orders.splice(index,1);
+      await saveOrders();
+      renderOrders();
+    };
+    ordersContainer.appendChild(div);
   });
 }
 
-// Payment function
-function showPayment(table, person=null){
-  paymentModal.style.display='flex'; paymentContent.innerHTML='';
-  if(person) paymentContent.innerHTML=`<div><strong>${person.description}</strong> - ${person.orders.reduce((s,o)=>s+o.price*o.quantity,0)} mts</div>`;
-  else paymentContent.innerHTML=`<div><strong>Table ${table.table}</strong> - ${table.people.reduce((s,p)=>s+p.orders.reduce((sum,o)=>sum+o.price*o.quantity,0),0)} mts</div>`;
-
-  payBtn.onclick=async()=>{
-    const method=paymentMethod.value; if(!method){ alert('Select method'); return; }
-    if(person) person.orders.forEach(o=>{ o.paid=true; o.status='served'; });
-    else table.people.forEach(p=>p.orders.forEach(o=>{ o.paid=true; o.status='served'; }));
-
-    // move table to closedTables if all paid
-    if(table.people.every(p=>p.orders.every(o=>o.paid))){
-      posData.closedTables.push({...table, timeClosed:new Date().toISOString()});
-      posData.openTables.splice(posData.openTables.indexOf(table),1);
-    }
-
-    await savePos(); paymentModal.style.display='none'; renderTables();
-  };
-  closeModalBtn.onclick=()=>paymentModal.style.display='none';
-}
+// Load existing orders
+onSnapshot(ordersDocRef, snap=>{
+  orders = snap.data()?.orders||[];
+  renderOrders();
+});
 </script>
+
 </body>
 </html>
