@@ -12,9 +12,10 @@
     .row > *{flex:1}
     .card{border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
     pre{background:#f7f7f7;padding:12px;border-radius:6px;overflow:auto}
-    .table-box{border:1px solid #aaa;border-radius:8px;padding:12px;margin-bottom:12px;background:#fdfdfd;}
-    .table-title{font-weight:700;font-size:16px;margin-bottom:6px;color:#333}
-    .order-tag-box{border:1px solid #bbb;border-radius:6px;padding:6px;margin:6px 0;background:#eef}
+    .table-box{border:1px solid #aaa;border-radius:8px;padding:12px;margin-bottom:12px;background:#fdfdfd;position:relative}
+    .table-title{font-weight:700;font-size:16px;margin-bottom:6px;color:#333;display:inline-block}
+    .edit-btn{margin-left:8px;padding:2px 6px;font-size:12px;cursor:pointer}
+    .order-tag-box{border:1px solid #bbb;border-radius:6px;padding:6px;margin:6px 0;background:#eef;position:relative}
     .order-box{border:1px solid #ccc;border-radius:6px;padding:6px;margin:4px 0;background:#f7f7ff}
   </style>
 </head>
@@ -113,6 +114,15 @@
         const tableTitle = document.createElement('div');
         tableTitle.className = 'table-title';
         tableTitle.textContent = table.tableDescription;
+
+        const editBtnTable = document.createElement('button');
+        editBtnTable.className = 'edit-btn';
+        editBtnTable.textContent = 'Edit';
+        editBtnTable.onclick = () => {
+          const newText = prompt('Edit Table Description', table.tableDescription);
+          if(newText) { table.tableDescription = newText; updateSnapshot(); renderTables(); }
+        };
+        tableTitle.appendChild(editBtnTable);
         tableDiv.appendChild(tableTitle);
 
         table.orders.forEach(tag => {
@@ -120,6 +130,16 @@
           tagDiv.className = 'order-tag-box';
           const tagTitle = document.createElement('div');
           tagTitle.style.fontWeight='600'; tagTitle.textContent = tag.orderTag;
+
+          const editBtnTag = document.createElement('button');
+          editBtnTag.className = 'edit-btn';
+          editBtnTag.textContent = 'Edit';
+          editBtnTag.onclick = () => {
+            const newText = prompt('Edit Order Tag', tag.orderTag);
+            if(newText){ tag.orderTag = newText; updateSnapshot(); renderTables(); }
+          };
+          tagTitle.appendChild(editBtnTag);
+
           tagDiv.appendChild(tagTitle);
           tag.items.forEach(o => {
             const orderDiv = document.createElement('div');
