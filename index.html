@@ -12,6 +12,10 @@
     .row > *{flex:1}
     .card{border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
     pre{background:#f7f7f7;padding:12px;border-radius:6px;overflow:auto}
+    /* Table & Order boxes */
+    .table-box{border:1px solid #aaa;border-radius:8px;padding:12px;margin-bottom:12px;background:#fdfdfd;}
+    .table-title{font-weight:700;font-size:16px;margin-bottom:6px;color:#333}
+    .order-box{border:1px solid #ccc;border-radius:6px;padding:6px;margin:4px 0;background:#f7f7ff}
   </style>
 </head>
 <body>
@@ -79,12 +83,22 @@
 
     function findTable(tableDescription){ return posData.openOrders.find(t => t.tableDescription === tableDescription); }
 
+    function findOrderTag(table, orderTag){ return table.orders.find(o => o.orderTag === orderTag); }
+
     function placeOrder({tableDescription, orderTag, section, item, qty}){
       const timestamp = new Date().toISOString();
-      const order = { orderId: uid('ORD-'), orderTag: orderTag || 'Single Order', section, item, qty: Number(qty) || 1, timestampCreated: timestamp, orderStatus: 'open' };
       let table = findTable(tableDescription);
       if(!table){ table = { tableId: uid('TBL-'), tableDescription, status: 'occupied', createdAt: timestamp, orders: [] }; posData.openOrders.push(table); }
-      table.orders.push(order);
+
+      let existingOrder = findOrderTag(table, orderTag);
+      if(existingOrder){
+        // Append quantity if same Order Tag exists
+        existingOrder.qty += Number(qty) || 1;
+      } else {
+        const order = { orderId: uid('ORD-'), orderTag: orderTag || 'Single Order', section, item, qty: Number(qty) || 1, timestampCreated: timestamp, orderStatus: 'open' };
+        table.orders.push(order);
+      }
+
       updateSnapshot(); renderTables();
     }
 
@@ -92,10 +106,21 @@
       const container = document.getElementById('tables');
       container.innerHTML = '';
       posData.openOrders.forEach(table => {
-        const div = document.createElement('div');
-        div.style.border = '1px solid #ddd'; div.style.padding = '8px'; div.style.marginBottom = '8px'; div.style.borderRadius = '6px';
-        div.innerHTML = `<strong>${table.tableDescription}</strong><br>` + table.orders.map(o=>`- ${o.orderTag}: ${o.qty} x ${o.item}`).join('<br>');
-        container.appendChild(div);
+        const tableDiv = document.createElement('div');
+        tableDiv.className = 'table-box';
+        const tableTitle = document.createElement('div');
+        tableTitle.className = 'table-title';
+        tableTitle.textContent = table.tableDescription;
+        tableDiv.appendChild(tableTitle);
+
+        table.orders.forEach(o => {
+          const orderDiv = document.createElement('div');
+          orderDiv.className = 'order-box';
+          orderDiv.textContent = `${o.orderTag}: ${o.qty} x ${o.item}`;
+          tableDiv.appendChild(orderDiv);
+        });
+
+        container.appendChild(tableDiv);
       });
     }
 
