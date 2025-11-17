@@ -16,9 +16,13 @@
 </head>
 <body>
   <h2>POS — Input (Demo)</h2>
-  hn - Table / Window seat" required />
+  
 
-    <label for="orderTag">Order Tag</label>
+  <div class="card">
+    <label for="tableDesc">Table Description (required)</label>
+    <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" required />
+
+    <label for="tableDesc">Table Description (required)</label>\n    <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" required />\n\n    <label for="orderTag">Order Tag</label>
     <input id="orderTag" placeholder="Single Order" value="Single Order" />
 
     <div class="row">
@@ -51,17 +55,15 @@
     <p style="font-size:13px;color:#666">Open your browser console to see the same object logged as if it were a database.</p>
   </div>
 
-  <script>
-    // Demo items per section — you will replace with real menu later.
-    const MENU = {
-      Food: ["Burger", "Pizza</div>
-
   <div class="card">
     <h3>Tables & Orders</h3>
     <div id="tables"></div>
   </div>
 
-  <script>"],
+  <script>
+    // Demo items per section — you will replace with real menu later.
+    const MENU = {
+      Food: ["Burger", "Pizza", "Salad", "Pasta"],
       Drinks: ["Water", "Soda", "Coffee", "Juice"]
     };
 
@@ -132,15 +134,15 @@
 
       // Log as if we are writing to a database (console)
       
-      console.log(posData);
+      // console.log removed(posData);
 
       // Update visible snapshot
-      updateSnapshot();
+      updateSnapshot(); renderTables();
     }
 
     // Wire UI
-    $('section').addEventListener('c// console.log removed> populateItems(e.target.value));
-    populateItemsupdateSnapshot(); renderTables();ue);
+    $('section').addEventListener('change', e => populateItems(e.target.value));
+    populateItems($('section').value);
 
     $('placeOrderBtn').addEventListener('click', () => {
       const tableDescription = $('tableDesc').value.trim();
@@ -164,12 +166,7 @@
       $('qty').value = 1;
     });
 
-    // Initial render
-    updateSnapshot();
-  </script>
-</body>
-</html>
-function renderTables(){
+    function renderTables(){
       const container = document.getElementById('tables');
       container.innerHTML = '';
       posData.openOrders.forEach(table => {
@@ -184,4 +181,8 @@ function renderTables(){
       });
     }
 
-    // Initial renderupdateSnapshot(); renderTables();
+    // Initial render
+    updateSnapshot(); renderTables();
+  </script>
+</body>
+</html>
