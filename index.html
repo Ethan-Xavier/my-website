@@ -14,9 +14,11 @@
     pre{background:#f7f7f7;padding:12px;border-radius:6px;overflow:auto}
     .table-box{border:1px solid #aaa;border-radius:8px;padding:12px;margin-bottom:12px;background:#fdfdfd;position:relative}
     .table-title{font-weight:700;font-size:16px;margin-bottom:6px;color:#333;display:flex;align-items:center;}
-    .order-tag-box{border:1px solid #bbb;border-radius:6px;padding:6px;margin:6px 0;background:#eef;display:flex;align-items:center}
+    .order-tag-box{border:1px solid #bbb;border-radius:6px;padding:6px;margin:6px 0;background:#eef;display:flex;flex-direction:column;}
     .order-box{border:1px solid #ccc;border-radius:6px;padding:6px;margin:4px 0;background:#f7f7ff}
-    .edit-btn{border:none;background:none;cursor:pointer;font-size:1em; margin-right:6px;}
+    .edit-btn{border:none;background:none;cursor:pointer;font-size:1em; margin-right:6px; transform: rotate(-20deg);}
+    .tag-header{display:flex;align-items:center;}
+    .order-total{margin-top:4px;font-weight:600;text-align:right;}
   </style>
 </head>
 <body>
@@ -133,6 +135,9 @@
           const tagDiv = document.createElement('div');
           tagDiv.className = 'order-tag-box';
 
+          const tagHeader = document.createElement('div');
+          tagHeader.className = 'tag-header';
+
           const editBtnTag = document.createElement('button');
           editBtnTag.className = 'edit-btn';
           editBtnTag.innerHTML = '✏';
@@ -140,12 +145,14 @@
             const newText = prompt('Edit Order Tag', tag.orderTag);
             if(newText){ tag.orderTag = newText; updateSnapshot(); renderTables(); }
           };
-          tagDiv.appendChild(editBtnTag);
+          tagHeader.appendChild(editBtnTag);
 
           const tagText = document.createElement('span');
           tagText.style.fontWeight = '600';
           tagText.textContent = tag.orderTag;
-          tagDiv.appendChild(tagText);
+          tagHeader.appendChild(tagText);
+
+          tagDiv.appendChild(tagHeader);
 
           tag.items.forEach(o => {
             const orderDiv = document.createElement('div');
@@ -153,6 +160,13 @@
             orderDiv.textContent = `${o.item} x ${o.qty} - $${o.price}`;
             tagDiv.appendChild(orderDiv);
           });
+
+          const totalDiv = document.createElement('div');
+          totalDiv.className = 'order-total';
+          const total = tag.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+          totalDiv.textContent = `Total: $${total}`;
+          tagDiv.appendChild(totalDiv);
+
           tableDiv.appendChild(tagDiv);
         });
 
