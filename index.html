@@ -12,18 +12,79 @@
     .row > *{flex:1}
     .card{border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
     pre{background:#f7f7f7;padding:12px;border-radius:6px;overflow:auto}
-    .table-box{border:1px solid #aaa;border-radius:8px;padding:12px;margin-bottom:12px;background:#fdfdfd;position:relative}
-    .table-title{font-weight:700;font-size:16px;margin-bottom:6px;color:#333;display:flex;align-items:center;}
-    .order-tag-box{border:1px solid #bbb;border-radius:6px;padding:6px;margin:6px 0;background:#eef;display:flex;flex-direction:column;}
-    .order-box{border:1px solid #ccc;border-radius:6px;padding:6px;margin:4px 0;background:#f7f7ff}
-    .edit-btn{border:none;background:none;cursor:pointer;font-size:1em; transform: rotate(-20deg); padding:0; margin:0; line-height:1;}
-    .tag-header{display:flex;align-items:center;}
-    .order-total{margin-top:4px;font-weight:600;text-align:right;}
+
+    .table-box{
+      border:1px solid #aaa;
+      border-radius:8px;
+      padding:12px;
+      margin-bottom:12px;
+      background:#fdfdfd;
+    }
+
+    .table-title{
+      font-weight:700;
+      font-size:16px;
+      margin-bottom:6px;
+      color:#333;
+      display:flex;
+      align-items:center;
+      position:relative;
+      padding-left:18px; /* space for pencil overlap */
+    }
+
+    .order-tag-box{
+      border:1px solid #bbb;
+      border-radius:6px;
+      padding:6px;
+      margin:6px 0;
+      background:#eef;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+      padding-left:18px; /* space for pencil overlap */
+    }
+
+    .order-box{
+      border:1px solid #ccc;
+      border-radius:6px;
+      padding:6px;
+      margin:4px 0;
+      background:#f7f7ff
+    }
+
+    .edit-btn{
+      border:none;
+      background:none;
+      cursor:pointer;
+      font-size:14px;
+      transform: rotate(-20deg);
+      padding:0;
+      margin:0;
+      line-height:1;
+      position:absolute;
+      left:0;
+      top:2px;
+      opacity:0.6;
+    }
+
+    .edit-btn:hover { opacity:1; }
+
+    .tag-header{
+      font-weight:600;
+      position:relative;
+    }
+
+    .order-total{
+      margin-top:4px;
+      font-weight:600;
+      text-align:right;
+    }
   </style>
 </head>
 <body>
   <h2>POS — Input (Demo)</h2>
 
+  <!-- INPUT AREA -->
   <div class="card">
     <label for="tableDesc">Table Description (required)</label>
     <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" required />
@@ -54,12 +115,14 @@
     <button id="placeOrderBtn">Place order</button>
   </div>
 
+  <!-- SNAPSHOT -->
   <div class="card">
     <h3>posData (current snapshot)</h3>
     <pre id="snapshot">(no orders yet)</pre>
     <p style="font-size:13px;color:#666">Snapshot of posData object</p>
   </div>
 
+  <!-- TABLES -->
   <div class="card">
     <h3>Tables & Orders</h3>
     <div id="tables"></div>
@@ -67,8 +130,18 @@
 
   <script>
     const MENU = { 
-      Food: [{name:"Burger", price:5}, {name:"Pizza", price:8}, {name:"Salad", price:4}, {name:"Pasta", price:7}],
-      Drinks: [{name:"Water", price:1}, {name:"Soda", price:2}, {name:"Coffee", price:3}, {name:"Juice", price:3}]
+      Food: [
+        {name:"Burger", price:5},
+        {name:"Pizza", price:8},
+        {name:"Salad", price:4},
+        {name:"Pasta", price:7}
+      ],
+      Drinks: [
+        {name:"Water", price:1},
+        {name:"Soda", price:2},
+        {name:"Coffee", price:3},
+        {name:"Juice", price:3}
+      ]
     };
 
     const posData = { openOrders: [], closedOrders: [], problemOrders: [] };
@@ -78,7 +151,12 @@
     function populateItems(section){
       const itemSelect = $('item');
       itemSelect.innerHTML = '';
-      MENU[section].forEach(it => { const opt = document.createElement('option'); opt.value = it.name; opt.textContent = `${it.name} ($${it.price})`; itemSelect.appendChild(opt); });
+      MENU[section].forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.name;
+        opt.textContent = `${it.name} - $${it.price}`;
+        itemSelect.appendChild(opt);
+      });
     }
 
     function getItemPrice(section, itemName){
@@ -86,30 +164,60 @@
       return found ? found.price : 0;
     }
 
-    function uid(prefix = ''){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+    function uid(prefix = ''){ 
+      return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,7); 
+    }
 
-    function updateSnapshot(){ snapshotEl.textContent = JSON.stringify(posData, null, 2); }
+    function updateSnapshot(){ 
+      snapshotEl.textContent = JSON.stringify(posData, null, 2); 
+    }
 
-    function findTable(tableDescription){ return posData.openOrders.find(t => t.tableDescription === tableDescription); }
+    function findTable(tableDescription){ 
+      return posData.openOrders.find(t => t.tableDescription === tableDescription); 
+    }
 
     function placeOrder({tableDescription, orderTag, section, item, qty}){
       const timestamp = new Date().toISOString();
+
       let table = findTable(tableDescription);
-      if(!table){ table = { tableId: uid('TBL-'), tableDescription, status: 'occupied', createdAt: timestamp, orders: [] }; posData.openOrders.push(table); }
+      if(!table){
+        table = {
+          tableId: uid('TBL-'),
+          tableDescription,
+          status: 'occupied',
+          createdAt: timestamp,
+          orders: []
+        };
+        posData.openOrders.push(table);
+      }
 
       let tagOrder = table.orders.find(o => o.orderTag === orderTag);
-      if(!tagOrder){ tagOrder = { orderTag: orderTag || 'Single Order', items: [] }; table.orders.push(tagOrder); }
+      if(!tagOrder){
+        tagOrder = { orderTag: orderTag || 'Single Order', items: [] };
+        table.orders.push(tagOrder);
+      }
 
       const existingItem = tagOrder.items.find(i => i.item === item);
-      if(existingItem){ existingItem.qty += Number(qty) || 1; }
-      else{ tagOrder.items.push({ item, qty: Number(qty) || 1, price: getItemPrice(section, item), timestampCreated: timestamp, orderStatus: 'open' }); }
+      if(existingItem){
+        existingItem.qty += Number(qty) || 1;
+      } else {
+        tagOrder.items.push({
+          item,
+          qty: Number(qty) || 1,
+          price: getItemPrice(section, item),
+          timestampCreated: timestamp,
+          orderStatus: 'open'
+        });
+      }
 
-      updateSnapshot(); renderTables();
+      updateSnapshot();
+      renderTables();
     }
 
     function renderTables(){
       const container = document.getElementById('tables');
       container.innerHTML = '';
+
       posData.openOrders.forEach(table => {
         const tableDiv = document.createElement('div');
         tableDiv.className = 'table-box';
@@ -117,20 +225,23 @@
         const tableTitleDiv = document.createElement('div');
         tableTitleDiv.className = 'table-title';
 
+        /* TABLE PENCIL ICON (updated) */
         const editBtnTable = document.createElement('button');
         editBtnTable.className = 'edit-btn';
         editBtnTable.innerHTML = '✏';
         editBtnTable.onclick = () => {
           const newText = prompt('Edit Table Description', table.tableDescription);
-          if(newText) { table.tableDescription = newText; updateSnapshot(); renderTables(); }
+          if(newText){ table.tableDescription = newText; updateSnapshot(); renderTables(); }
         };
         tableTitleDiv.appendChild(editBtnTable);
 
         const tableText = document.createElement('span');
         tableText.textContent = table.tableDescription;
         tableTitleDiv.appendChild(tableText);
+
         tableDiv.appendChild(tableTitleDiv);
 
+        /* ORDER TAGS */
         table.orders.forEach(tag => {
           const tagDiv = document.createElement('div');
           tagDiv.className = 'order-tag-box';
@@ -138,6 +249,7 @@
           const tagHeader = document.createElement('div');
           tagHeader.className = 'tag-header';
 
+          /* ORDER TAG PENCIL ICON (updated) */
           const editBtnTag = document.createElement('button');
           editBtnTag.className = 'edit-btn';
           editBtnTag.innerHTML = '✏';
@@ -148,7 +260,6 @@
           tagHeader.appendChild(editBtnTag);
 
           const tagText = document.createElement('span');
-          tagText.style.fontWeight = '600';
           tagText.textContent = tag.orderTag;
           tagHeader.appendChild(tagText);
 
@@ -180,12 +291,23 @@
     $('placeOrderBtn').addEventListener('click', () => {
       const tableDescription = $('tableDesc').value.trim();
       if(!tableDescription){ alert('Table Description is required.'); return; }
-      const payload = { tableDescription, orderTag: $('orderTag').value.trim() || 'Single Order', section: $('section').value, item: $('item').value, qty: $('qty').value };
+
+      const payload = {
+        tableDescription,
+        orderTag: $('orderTag').value.trim() || 'Single Order',
+        section: $('section').value,
+        item: $('item').value,
+        qty: $('qty').value
+      };
+
       placeOrder(payload);
-      $('orderTag').value = 'Single Order'; $('qty').value = 1;
+      $('orderTag').value = 'Single Order';
+      $('qty').value = 1;
     });
 
-    updateSnapshot(); renderTables();
+    updateSnapshot();
+    renderTables();
   </script>
 </body>
 </html>
+
