@@ -56,6 +56,17 @@
       padding:2px 6px;
       font-size:12px;
       cursor:pointer;
+      margin-left:4px;
+    }
+
+    .pay-btn{
+      background:#4CAF50;
+      color:white;
+      border:none;
+      border-radius:4px;
+      padding:2px 6px;
+      font-size:12px;
+      cursor:pointer;
     }
 
     .order-box{
@@ -237,6 +248,26 @@
             if(newText){ tag.orderTag = newText; updateSnapshot(); renderTables(); }
           };
           tagHeader.appendChild(tagText);
+
+          // Pay button
+          const payBtn = document.createElement('button');
+          payBtn.className = 'pay-btn';
+          payBtn.textContent = 'Pay';
+          payBtn.onclick = () => {
+            tag.items.forEach(i => {
+              posData.closedOrders.push({
+                item: i.item,
+                qty: i.qty,
+                price: i.price,
+                timestampCreated: i.timestampCreated
+              });
+            });
+            table.orders.splice(tagIndex,1);
+            if(table.orders.length === 0) posData.openOrders.splice(tIndex,1);
+            updateSnapshot();
+            renderTables();
+          };
+          tagHeader.appendChild(payBtn);
 
           // Cancel button
           const cancelBtn = document.createElement('button');
