@@ -37,10 +37,24 @@
       background:#eef;
       display:flex;
       flex-direction:column;
+      position:relative;
     }
 
     .tag-header{
       font-weight:600;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .cancel-btn{
+      background:#ff4d4d;
+      color:white;
+      border:none;
+      border-radius:4px;
+      padding:2px 6px;
+      font-size:12px;
       cursor:pointer;
     }
 
@@ -196,7 +210,7 @@
       const container = document.getElementById('tables');
       container.innerHTML = '';
 
-      posData.openOrders.forEach(table => {
+      posData.openOrders.forEach((table, tIndex) => {
         const tableDiv = document.createElement('div');
         tableDiv.className = 'table-box';
 
@@ -209,18 +223,35 @@
         };
         tableDiv.appendChild(tableTitleDiv);
 
-        /* ORDER TAGS */
-        table.orders.forEach(tag => {
+        table.orders.forEach((tag, tagIndex) => {
           const tagDiv = document.createElement('div');
           tagDiv.className = 'order-tag-box';
 
           const tagHeader = document.createElement('div');
           tagHeader.className = 'tag-header';
-          tagHeader.textContent = tag.orderTag;
-          tagHeader.onclick = () => {
+
+          const tagText = document.createElement('span');
+          tagText.textContent = tag.orderTag;
+          tagText.onclick = () => {
             const newText = prompt('Edit Order Tag', tag.orderTag);
             if(newText){ tag.orderTag = newText; updateSnapshot(); renderTables(); }
           };
+          tagHeader.appendChild(tagText);
+
+          // Cancel button
+          const cancelBtn = document.createElement('button');
+          cancelBtn.className = 'cancel-btn';
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.onclick = () => {
+            table.orders.splice(tagIndex, 1);
+            if(table.orders.length === 0){
+              posData.openOrders.splice(tIndex, 1);
+            }
+            updateSnapshot();
+            renderTables();
+          };
+          tagHeader.appendChild(cancelBtn);
+
           tagDiv.appendChild(tagHeader);
 
           tag.items.forEach(o => {
