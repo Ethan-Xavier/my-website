@@ -169,6 +169,25 @@ function renderTables(){
       const btns = document.createElement('div');
       btns.className = 'tag-buttons';
 
+      const moveBtn = document.createElement('button');
+      moveBtn.className='btn-move';
+      moveBtn.textContent='Move';
+      moveBtn.onclick = ()=>{
+        const newDesc = prompt('Move to which Table Description?');
+        if(!newDesc) return;
+        // remove tag from current table
+        table.orders = table.orders.filter(o => o.orderTagId !== tag.orderTagId);
+        if(table.orders.length === 0) posData.openOrders = posData.openOrders.filter(t=>t.tableId!==table.tableId);
+        // find/create destination
+        let target = posData.openOrders.find(t => t.tableDescription === newDesc);
+        if(!target){
+          target = { tableId: uid(), tableDescription:newDesc, status:'occupied', createdAt:new Date().toISOString(), orders:[] };
+          posData.openOrders.push(target);
+        }
+        target.orders.push(tag);
+        renderTables(); updateSnapshot();
+      };
+
       const cancelBtn = document.createElement('button');
       cancelBtn.className='btn-cancel';
       cancelBtn.textContent='Cancel';
@@ -183,7 +202,7 @@ function renderTables(){
       payBtn.textContent='Pay';
       payBtn.onclick = ()=>openPayPopup(table,tag);
 
-      btns.append(cancelBtn,payBtn);
+      btns.append(moveBtn,cancelBtn,payBtn);
       head.append(span,btns);
       tbox.appendChild(head);
 
@@ -220,7 +239,7 @@ $('cancelPaymentBtn').onclick=()=>{payPopup.style.display='none';payContext=null
 $('confirmPaymentBtn').onclick=()=>{
   if(!payContext) return;
   const {table,tag}=payContext;
-  posData.closedOrders.push({ ...tag, closedAt:new Date().toISOString() });
+  posData.closedOrders.push(tag.items.map(i=>({ item:i.item, qty:i.qty, price:i.price, timestampCreated:i.timestampCreated })) );
 
   table.orders = table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
   if(table.orders.length===0) posData.openOrders = posData.openOrders.filter(t=>t.tableId!==table.tableId);
