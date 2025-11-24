@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>POS — Firebase (Firestore) — Demo</title>
+  <title>POS — No Firebase Demo</title>
 
   <style>
     body { font-family: system-ui, Arial; padding: 24px; max-width:1000px; margin:0 auto; }
@@ -25,14 +25,13 @@
     .btn-pay{background:#5cb85c;color:white;border:none;padding:5px 8px;border-radius:4px;cursor:pointer}
     .btn-move{background:#0275d8;color:white;border:none;padding:5px 8px;border-radius:4px;cursor:pointer}
 
-    /* payment popup */
     #payPopup{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:999}
     #payPopupContent{background:#fff;padding:18px;border-radius:8px;width:320px;max-width:90%}
     #payPopupContent h3{margin-top:0}
   </style>
 </head>
 <body>
-  <h2>POS — Firebase (Firestore) — Demo</h2>
+  <h2>POS — No Firebase Demo</h2>
 
   <div class="card">
     <label for="tableDesc">Table Description (required)</label>
@@ -64,19 +63,16 @@
     <button id="placeOrderBtn">Place order</button>
   </div>
 
-  <!-- Tables -->
   <div class="card">
     <h3>Tables & Orders</h3>
     <div id="tables"></div>
   </div>
 
-  <!-- Snapshot below tables -->
   <div class="card">
-    <h3>posData (current snapshot)</h3>
-    <pre id="snapshot">(loading...)</pre>
+    <h3>posData (local snapshot)</h3>
+    <pre id="snapshot"></pre>
   </div>
 
-  <!-- Payment popup -->
   <div id="payPopup">
     <div id="payPopupContent">
       <h3>Confirm Payment</h3>
@@ -94,393 +90,159 @@
     </div>
   </div>
 
-  <!-- Firebase + App script (module) -->
-  <script type="module">
-    // --- Firebase v9 modular imports (CDN) ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import {
-      getFirestore, collection, doc, setDoc, getDocs, getDoc,
-      onSnapshot, addDoc, deleteDoc, updateDoc, serverTimestamp, query, orderBy
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+<script>
+const $ = id => document.getElementById(id);
+const posData = { openOrders: [], closedOrders: [] };
 
-    // --- YOUR firebaseConfig (you provided) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyC6VdctOXcT-qHaLJs1gEzwzVv5AdK5e0w",
-      authDomain: "pos-system-9a056.firebaseapp.com",
-      projectId: "pos-system-9a056",
-      storageBucket: "pos-system-9a056.firebasestorage.app",
-      messagingSenderId: "701001104012",
-      appId: "1:701001104012:web:294967faec11a627c819a9"
-    };
+const MENU = {
+  Food: [{name:"Burger", price:5},{name:"Pizza", price:8},{name:"Salad", price:4},{name:"Pasta", price:7}],
+  Drinks: [{name:"Water", price:1},{name:"Soda", price:2},{name:"Coffee", price:3},{name:"Juice", price:3}]
+};
 
-    // Initialize Firebase & Firestore
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+function uid(){ return "ID-" + Math.random().toString(36).slice(2,9); }
 
-    // Collections
-    const openOrdersCol = collection(db, "openOrders");
-    const closedOrdersCol = collection(db, "closedOrders");
-    const problemOrdersCol = collection(db, "problemOrders");
+function populateItems(section){
+  const sel = $('item');
+  sel.innerHTML = '';
+  MENU[section].forEach(it => {
+    let o = document.createElement('option');
+    o.value = it.name;
+    o.textContent = `${it.name} - $${it.price}`;
+    sel.appendChild(o);
+  });
+}
+populateItems($('section').value);
+$('section').addEventListener('change', e => populateItems(e.target.value));
 
-    // Local copy
-    const posData = { openOrders: [], closedOrders: [], problemOrders: [] };
+function getItemPrice(section,item){
+  return MENU[section].find(i=>i.name===item)?.price || 0;
+}
 
-    const $ = id => document.getElementById(id);
-    const snapshotEl = $('snapshot');
+function updateSnapshot(){ $('snapshot').textContent = JSON.stringify(posData,null,2); }
 
-    // MENU
-    const MENU = {
-      Food: [{name:"Burger", price:5},{name:"Pizza", price:8},{name:"Salad", price:4},{name:"Pasta", price:7}],
-      Drinks: [{name:"Water", price:1},{name:"Soda", price:2},{name:"Coffee", price:3},{name:"Juice", price:3}]
-    };
+async function placeOrder({tableDescription,orderTag,section,item,qty}){
+  let table = posData.openOrders.find(t => t.tableDescription === tableDescription);
+  const timestamp = new Date().toISOString();
 
-    function populateItems(section){
-      const itemSelect = $('item');
-      itemSelect.innerHTML = '';
-      MENU[section].forEach(it => {
-        const opt = document.createElement('option');
-        opt.value = it.name;
-        opt.textContent = `${it.name} - $${it.price}`;
-        itemSelect.appendChild(opt);
-      });
-    }
-    populateItems($('section').value);
-    $('section').addEventListener('change', e => populateItems(e.target.value));
+  if(!table){
+    table = { tableId: uid(), tableDescription, status:'occupied', createdAt:timestamp, orders:[] };
+    posData.openOrders.push(table);
+  }
 
-    // Utility uid (client-side id for documents)
-    function uid(prefix='') {
-      return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-    }
+  let tag = table.orders.find(x => x.orderTag === orderTag);
+  if(!tag){
+    tag = { orderTagId: uid(), orderTag, items:[] };
+    table.orders.push(tag);
+  }
 
-    // Update snapshot display (local)
-    function updateSnapshot() {
-      snapshotEl.textContent = JSON.stringify(posData, null, 2);
-    }
+  let existing = tag.items.find(i => i.item === item);
+  if(existing) existing.qty += Number(qty);
+  else tag.items.push({ item, qty:Number(qty), price:getItemPrice(section,item), timestampCreated:timestamp });
 
-    // --- Firestore realtime listener for openOrders collection ---
-    // We store each table as a document in openOrders. Each document has:
-    // { tableId, tableDescription, status, createdAt, orders: [{orderTagId, orderTag, items:[{item,qty,price,timestampCreated}]}] }
-    const q = query(openOrdersCol, orderBy('createdAt', 'asc'));
-    onSnapshot(q, async (snap) => {
-      posData.openOrders = [];
-      const docs = snap.docs;
-      for(const d of docs){
-        const data = d.data();
-        // ensure doc.id used as tableId
-        const table = {
-          tableId: d.id,
-          tableDescription: data.tableDescription || '',
-          status: data.status || 'occupied',
-          createdAt: data.createdAt ? data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt : new Date().toISOString(),
-          orders: data.orders || []
-        };
-        posData.openOrders.push(table);
-      }
-      // also keep closed/problem counts (optional)
-      // fetch closedOrders count snapshot (simple)
-      const closedSnap = await getDocs(closedOrdersCol);
-      posData.closedOrders = closedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const probSnap = await getDocs(problemOrdersCol);
-      posData.problemOrders = probSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  renderTables();
+  updateSnapshot();
+}
 
-      updateSnapshot();
-      renderTables();
-    });
+function renderTables(){
+  const container = $('tables');
+  container.innerHTML = '';
 
-    // --- Helper: write a table doc to Firestore ---
-    async function writeTableDoc(table){
-      // if table has tableId and doc exists, update; otherwise create new with given id
-      const docRef = table.tableId ? doc(db, 'openOrders', table.tableId) : doc(openOrdersCol, uid('TBL-'));
-      const payload = {
-        tableDescription: table.tableDescription,
-        status: table.status || 'occupied',
-        createdAt: table.createdAt ? new Date(table.createdAt) : serverTimestamp(),
-        orders: table.orders || []
+  posData.openOrders.forEach(table => {
+    const box = document.createElement('div');
+    box.className = 'table-box';
+
+    const title = document.createElement('div');
+    title.className = 'table-title';
+    title.textContent = table.tableDescription;
+    box.appendChild(title);
+
+    table.orders.forEach(tag => {
+      const tbox = document.createElement('div');
+      tbox.className = 'order-tag-box';
+
+      const head = document.createElement('div');
+      head.className = 'tag-header';
+
+      const span = document.createElement('span');
+      span.textContent = tag.orderTag;
+
+      const btns = document.createElement('div');
+      btns.className = 'tag-buttons';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className='btn-cancel';
+      cancelBtn.textContent='Cancel';
+      cancelBtn.onclick = ()=>{
+        table.orders = table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
+        if(table.orders.length===0) posData.openOrders = posData.openOrders.filter(t=>t.tableId!==table.tableId);
+        renderTables(); updateSnapshot();
       };
-      await setDoc(docRef, payload, { merge: true });
-      return docRef.id;
-    }
 
-    // --- Helper: remove table doc from Firestore ---
-    async function deleteTableDoc(tableId){
-      await deleteDoc(doc(db, 'openOrders', tableId)).catch(()=>{});
-    }
+      const payBtn = document.createElement('button');
+      payBtn.className='btn-pay';
+      payBtn.textContent='Pay';
+      payBtn.onclick = ()=>openPayPopup(table,tag);
 
-    // --- placeOrder: updates Firestore (adds or updates table doc) ---
-    async function placeOrder({tableDescription, orderTag, section, item, qty}){
-      // find local table by description
-      let table = posData.openOrders.find(t => t.tableDescription === tableDescription);
-      const timestamp = new Date().toISOString();
-      if(!table){
-        // new table locally and in Firestore
-        const newTable = {
-          tableId: uid('TBL-'),
-          tableDescription,
-          status:'occupied',
-          createdAt: timestamp,
-          orders: []
-        };
-        // push item into order tag
-        const tagObj = { orderTagId: uid('TAG-'), orderTag: orderTag || 'Single Order', items: [{ item, qty: Number(qty)||1, price: getItemPrice(section,item), timestampCreated: timestamp }] };
-        newTable.orders.push(tagObj);
-        // write to firestore
-        await setDoc(doc(db, 'openOrders', newTable.tableId), {
-          tableDescription: newTable.tableDescription,
-          status: newTable.status,
-          createdAt: new Date(newTable.createdAt),
-          orders: newTable.orders
-        });
-        return;
-      }
+      btns.append(cancelBtn,payBtn);
+      head.append(span,btns);
+      tbox.appendChild(head);
 
-      // table exists: modify its orders array
-      // find tag
-      const tag = table.orders.find(t => t.orderTag === orderTag);
-      if(!tag){
-        const tagObj = { orderTagId: uid('TAG-'), orderTag: orderTag || 'Single Order', items: [{ item, qty: Number(qty)||1, price: getItemPrice(section,item), timestampCreated: timestamp }] };
-        table.orders.push(tagObj);
-      } else {
-        // find existing item inside tag
-        const existingItem = tag.items.find(i => i.item === item);
-        if(existingItem){
-          existingItem.qty += Number(qty) || 1;
-        } else {
-          tag.items.push({ item, qty: Number(qty)||1, price: getItemPrice(section,item), timestampCreated: timestamp });
-        }
-      }
-      // write updated table to Firestore
-      await setDoc(doc(db,'openOrders',table.tableId), {
-        tableDescription: table.tableDescription,
-        status: table.status,
-        createdAt: new Date(table.createdAt),
-        orders: table.orders
-      }, { merge: true });
-    }
-
-    function getItemPrice(section, itemName){
-      const found = MENU[section].find(i => i.name === itemName);
-      return found ? found.price : 0;
-    }
-
-    // --- UI rendering (reads posData.openOrders local array) ---
-    function renderTables(){
-      const container = $('tables');
-      container.innerHTML = '';
-      posData.openOrders.forEach(table => {
-        const tableDiv = document.createElement('div');
-        tableDiv.className = 'table-box';
-
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'table-title';
-        titleDiv.textContent = table.tableDescription;
-        titleDiv.onclick = async () => {
-          const newDesc = prompt('Edit Table Description', table.tableDescription);
-          if(!newDesc) return;
-          // update in firestore
-          await setDoc(doc(db, 'openOrders', table.tableId), { tableDescription: newDesc }, { merge: true });
-        };
-        tableDiv.appendChild(titleDiv);
-
-        (table.orders || []).forEach(tag => {
-          const tagDiv = document.createElement('div');
-          tagDiv.className = 'order-tag-box';
-
-          const header = document.createElement('div');
-          header.className = 'tag-header';
-
-          const titleSpan = document.createElement('span');
-          titleSpan.textContent = tag.orderTag;
-          titleSpan.onclick = async () => {
-            const newTag = prompt('Edit Order Tag', tag.orderTag);
-            if(!newTag) return;
-            // update tag inside table doc: fetch table doc, modify orders array, write back
-            const tableDocRef = doc(db, 'openOrders', table.tableId);
-            const tableSnap = await getDoc(tableDocRef);
-            if(!tableSnap.exists()) return;
-            const data = tableSnap.data();
-            const orders = (data.orders || []).map(o => (o.orderTagId === tag.orderTagId ? {...o, orderTag: newTag} : o));
-            await setDoc(tableDocRef, { orders }, { merge: true });
-          };
-
-          const buttonsDiv = document.createElement('div');
-          buttonsDiv.className = 'tag-buttons';
-
-          // Move button
-          const moveBtn = document.createElement('button');
-          moveBtn.className = 'btn-move';
-          moveBtn.textContent = 'Move';
-          moveBtn.onclick = async () => {
-            const newTableDesc = prompt('Move to which Table Description?');
-            if(!newTableDesc) return;
-            // remove tag from current table doc and append to destination table doc
-            const fromRef = doc(db, 'openOrders', table.tableId);
-            const fromSnap = await getDoc(fromRef);
-            if(!fromSnap.exists()) return;
-            const fromData = fromSnap.data();
-            const orders = (fromData.orders || []).filter(o => o.orderTagId !== tag.orderTagId);
-
-            // write updated source
-            if(orders.length === 0){
-              // delete source doc
-              await deleteDoc(fromRef);
-            } else {
-              await setDoc(fromRef, { orders }, { merge: true });
-            }
-
-            // find or create destination table (by description)
-            // query existing openOrders for matching description
-            const destDocs = await getDocs(collection(db,'openOrders'));
-            let destDoc = destDocs.docs.find(d => (d.data().tableDescription || '') === newTableDesc);
-            if(destDoc){
-              const destRef = doc(db,'openOrders',destDoc.id);
-              const destData = destDoc.data();
-              const destOrders = destData.orders || [];
-              destOrders.push(tag);
-              await setDoc(destRef, { orders: destOrders }, { merge: true });
-            } else {
-              // create new table doc
-              const newTableId = uid('TBL-');
-              await setDoc(doc(db,'openOrders',newTableId), {
-                tableDescription: newTableDesc,
-                status: 'occupied',
-                createdAt: new Date(),
-                orders: [tag]
-              });
-            }
-          };
-
-          // Cancel button
-          const cancelBtn = document.createElement('button');
-          cancelBtn.className = 'btn-cancel';
-          cancelBtn.textContent = 'Cancel';
-          cancelBtn.onclick = async () => {
-            const tableRef = doc(db,'openOrders',table.tableId);
-            const tableSnap = await getDoc(tableRef);
-            if(!tableSnap.exists()) return;
-            const data = tableSnap.data();
-            const orders = (data.orders || []).filter(o => o.orderTagId !== tag.orderTagId);
-            if(orders.length === 0){
-              await deleteDoc(tableRef);
-            } else {
-              await setDoc(tableRef, { orders }, { merge: true });
-            }
-          };
-
-          // Pay button (opens popup)
-          const payBtn = document.createElement('button');
-          payBtn.className = 'btn-pay';
-          payBtn.textContent = 'Pay';
-          payBtn.onclick = () => {
-            openPayPopup(table, tag);
-          };
-
-          buttonsDiv.appendChild(moveBtn);
-          buttonsDiv.appendChild(cancelBtn);
-          buttonsDiv.appendChild(payBtn);
-
-          header.append(titleSpan, buttonsDiv);
-          tagDiv.appendChild(header);
-
-          // items
-          (tag.items || []).forEach(i => {
-            const orderDiv = document.createElement('div');
-            orderDiv.className = 'order-box';
-            orderDiv.textContent = `${i.item} x ${i.qty} - $${i.price}`;
-            tagDiv.appendChild(orderDiv);
-          });
-
-          const total = (tag.items || []).reduce((s,i)=>s + (i.qty * i.price), 0);
-          const totalDiv = document.createElement('div');
-          totalDiv.className = 'order-total';
-          totalDiv.textContent = `Total: $${total}`;
-          tagDiv.appendChild(totalDiv);
-
-          tableDiv.appendChild(tagDiv);
-        });
-
-        container.appendChild(tableDiv);
-      });
-    }
-
-    // --- Payment popup handlers ---
-    let payContext = null; // { table, tag }
-
-    const payPopup = $('payPopup');
-    const payDetails = $('payDetails');
-    const paymentMethodSelect = $('paymentMethodSelect');
-    const confirmPaymentBtn = $('confirmPaymentBtn');
-    const cancelPaymentBtn = $('cancelPaymentBtn');
-
-    function openPayPopup(table, tag){
-      payContext = { table, tag };
-      payDetails.innerHTML = `<strong>Order Tag:</strong> ${tag.orderTag}<br><strong>Items:</strong><br>` +
-        (tag.items || []).map(i => `${i.item} x ${i.qty} - $${i.price}`).join('<br>');
-      paymentMethodSelect.value = 'Cash';
-      payPopup.style.display = 'flex';
-    }
-
-    cancelPaymentBtn.onclick = () => {
-      payPopup.style.display = 'none';
-      payContext = null;
-    };
-
-    confirmPaymentBtn.onclick = async () => {
-      if(!payContext) return;
-      const { table, tag } = payContext;
-      const method = paymentMethodSelect.value;
-      const closedAt = new Date().toISOString();
-
-      // Add each item as a closedOrders doc
-      for(const i of (tag.items || [])){
-        await addDoc(closedOrdersCol, {
-          item: i.item,
-          qty: i.qty,
-          price: i.price,
-          timestampCreated: i.timestampCreated,
-          paymentMethod: method,
-          originalOrderTag: tag.orderTag,
-          tableDescription: table.tableDescription,
-          closedAt: closedAt
-        });
-      }
-
-      // Remove tag from table doc (in Firestore)
-      const tableRef = doc(db, 'openOrders', table.tableId);
-      const tableSnap = await getDoc(tableRef);
-      if(tableSnap.exists()){
-        const data = tableSnap.data();
-        const orders = (data.orders || []).filter(o => o.orderTagId !== tag.orderTagId);
-        if(orders.length === 0){
-          await deleteDoc(tableRef);
-        } else {
-          await setDoc(tableRef, { orders }, { merge: true });
-        }
-      }
-
-      payPopup.style.display = 'none';
-      payContext = null;
-    };
-
-    // --- Hook up placeOrder button ---
-    $('placeOrderBtn').addEventListener('click', async () => {
-      const tableDescription = $('tableDesc').value.trim();
-      if(!tableDescription){ alert('Table Description is required.'); return; }
-
-      await placeOrder({
-        tableDescription,
-        orderTag: $('orderTag').value.trim() || 'Single Order',
-        section: $('section').value,
-        item: $('item').value,
-        qty: $('qty').value
+      tag.items.forEach(i=>{
+        const d=document.createElement('div');
+        d.className='order-box';
+        d.textContent=`${i.item} x ${i.qty} - $${i.price}`;
+        tbox.appendChild(d);
       });
 
-      $('orderTag').value = 'Single Order';
-      $('qty').value = 1;
+      const total = tag.items.reduce((s,i)=>s+i.qty*i.price,0);
+      const tot = document.createElement('div');
+      tot.className='order-total';
+      tot.textContent=`Total: $${total}`;
+      tbox.appendChild(tot);
+
+      box.appendChild(tbox);
     });
 
-    // initial snapshot text
-    updateSnapshot();
+    container.appendChild(box);
+  });
+}
 
-  </script>
+let payContext=null;
+const payPopup=$('payPopup');
+const payDetails=$('payDetails');
+
+function openPayPopup(table,tag){
+  payContext={table,tag};
+  payDetails.innerHTML = tag.items.map(i=>`${i.item} x ${i.qty}`).join('<br>');
+  payPopup.style.display='flex';
+}
+$('cancelPaymentBtn').onclick=()=>{payPopup.style.display='none';payContext=null};
+$('confirmPaymentBtn').onclick=()=>{
+  if(!payContext) return;
+  const {table,tag}=payContext;
+  posData.closedOrders.push({ ...tag, closedAt:new Date().toISOString() });
+
+  table.orders = table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
+  if(table.orders.length===0) posData.openOrders = posData.openOrders.filter(t=>t.tableId!==table.tableId);
+
+  payPopup.style.display='none';
+  payContext=null;
+  renderTables(); updateSnapshot();
+};
+
+$('placeOrderBtn').onclick=()=>{
+  const t = $('tableDesc').value.trim();
+  if(!t){alert('Table Description required');return;}
+  placeOrder({
+    tableDescription:t,
+    orderTag:$('orderTag').value.trim(),
+    section:$('section').value,
+    item:$('item').value,
+    qty:$('qty').value
+  });
+};
+
+updateSnapshot();
+</script>
 </body>
 </html>
