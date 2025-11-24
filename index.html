@@ -71,7 +71,7 @@
 
   <div class="card">
     <h3>Debts</h3>
-    <div id="debts"></div>
+    <div id="debtsContainer"></div>
   </div>
 
   <div class="card">
@@ -79,6 +79,7 @@
     <pre id="snapshot"></pre>
   </div>
 
+  <!-- Payment Popup -->
   <div id="payPopup">
     <div id="payPopupContent">
       <h3>Confirm Payment</h3>
@@ -96,123 +97,173 @@
     </div>
   </div>
 
+  <!-- Irregular Order Popup -->
+  <div id="irregularPopup">
+    <div id="irregularPopupContent">
+      <h3>Irregular Order</h3>
+      <label>Choose type:</label>
+      <select id="irregularTypeSelect">
+        <option value="Debt">Debt</option>
+        <option value="Cooking mistake">Cooking mistake</option>
+        <option value="Other">Other</option>
+      </select>
+      <div id="irregularExtra" style="margin-top:8px;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button id="confirmIrregularBtn" class="btn-irregular" style="flex:1">Confirm</button>
+        <button id="cancelIrregularBtn" class="btn-cancel" style="flex:1">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const $ = id => document.getElementById(id);
 const posData = { openOrders: [], closedOrders: [], irregularOrders: [] };
-
 const MENU = {
   Food: [{name:"Burger", price:5},{name:"Pizza", price:8},{name:"Salad", price:4},{name:"Pasta", price:7}],
   Drinks: [{name:"Water", price:1},{name:"Soda", price:2},{name:"Coffee", price:3},{name:"Juice", price:3}]
 };
-
 function uid(){ return "ID-" + Math.random().toString(36).slice(2,9); }
 
 function populateItems(section){
-  const sel = $('item');
-  sel.innerHTML = '';
-  MENU[section].forEach(it => {
-    let o = document.createElement('option');
-    o.value = it.name;
-    o.textContent = `${it.name} - $${it.price}`;
-    sel.appendChild(o);
+  const sel = $('item'); sel.innerHTML='';
+  MENU[section].forEach(it=>{
+    let o = document.createElement('option'); o.value=it.name; o.textContent=`${it.name} - $${it.price}`; sel.appendChild(o);
   });
 }
 populateItems($('section').value);
-$('section').addEventListener('change', e => populateItems(e.target.value));
+$('section').addEventListener('change', e=>populateItems(e.target.value));
 
-function getItemPrice(section,item){ return MENU[section].find(i=>i.name===item)?.price || 0; }
-function updateSnapshot(){ $('snapshot').textContent = JSON.stringify(posData,null,2); }
+function getItemPrice(section,item){ return MENU[section].find(i=>i.name===item)?.price||0; }
+function updateSnapshot(){ $('snapshot').textContent=JSON.stringify(posData,null,2); }
 
 async function placeOrder({tableDescription,orderTag,section,item,qty}){
-  let table = posData.openOrders.find(t => t.tableDescription === tableDescription);
+  let table = posData.openOrders.find(t=>t.tableDescription===tableDescription);
   const timestamp = new Date().toISOString();
-  if(!table){ table = { tableId: uid(), tableDescription, status:'occupied', createdAt:timestamp, orders:[] }; posData.openOrders.push(table); }
-
-  let tag = table.orders.find(x => x.orderTag === orderTag);
-  if(!tag){ tag = { orderTagId: uid(), orderTag, items:[] }; table.orders.push(tag); }
-  let existing = tag.items.find(i => i.item === item);
-  if(existing) existing.qty += Number(qty);
-  else tag.items.push({ item, qty:Number(qty), price:getItemPrice(section,item), timestampCreated:timestamp });
-
-  renderTables(); updateSnapshot(); renderDebts();
-}
-
-function renderDebts(){
-  const container = $('debts');
-  container.innerHTML = '';
-  posData.irregularOrders.filter(o=>o.type==='Debt').forEach(debt=>{
-    const div = document.createElement('div');
-    div.className='order-tag-box';
-    div.innerHTML = `<strong>${debt.description}</strong> - $${debt.amount}`;
-    const payBtn = document.createElement('button');
-    payBtn.className='btn-pay';
-    payBtn.textContent='Paid';
-    payBtn.onclick = ()=>openPayPopupForDebt(debt);
-    div.appendChild(payBtn);
-    container.appendChild(div);
-  });
+  if(!table){ table={tableId:uid(),tableDescription,status:'occupied',createdAt:timestamp,orders:[]}; posData.openOrders.push(table); }
+  let tag = table.orders.find(x=>x.orderTag===orderTag);
+  if(!tag){ tag={orderTagId:uid(),orderTag,items:[]}; table.orders.push(tag); }
+  let existing = tag.items.find(i=>i.item===item);
+  if(existing) existing.qty+=Number(qty); else tag.items.push({item,qty:Number(qty),price:getItemPrice(section,item),timestampCreated:timestamp});
+  renderTables(); updateSnapshot();
 }
 
 function renderTables(){
-  const container = $('tables'); container.innerHTML='';
+  const container=$('tables'); container.innerHTML='';
   posData.openOrders.forEach(table=>{
-    const box = document.createElement('div'); box.className='table-box';
-    const title = document.createElement('div'); title.className='table-title'; title.textContent = table.tableDescription; box.appendChild(title);
-
+    const box=document.createElement('div'); box.className='table-box';
+    const title=document.createElement('div'); title.className='table-title'; title.textContent=table.tableDescription; box.appendChild(title);
     table.orders.forEach(tag=>{
       const tbox=document.createElement('div'); tbox.className='order-tag-box';
       const head=document.createElement('div'); head.className='tag-header';
       const span=document.createElement('span'); span.textContent=tag.orderTag;
       const btns=document.createElement('div'); btns.className='tag-buttons';
 
-      const moveBtn=document.createElement('button'); moveBtn.className='btn-move'; moveBtn.textContent='Move'; moveBtn.onclick=()=>{ const newDesc=prompt('Move to which Table Description?'); if(!newDesc) return; table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); let target=posData.openOrders.find(t=>t.tableDescription===newDesc); if(!target){target={tableId:uid(),tableDescription:newDesc,status:'occupied',createdAt:new Date().toISOString(),orders:[]}; posData.openOrders.push(target);} target.orders.push(tag); renderTables(); updateSnapshot(); };
-      const cancelBtn=document.createElement('button'); cancelBtn.className='btn-cancel'; cancelBtn.textContent='Cancel'; cancelBtn.onclick=()=>{table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); renderTables(); updateSnapshot(); };
-      const payBtn=document.createElement('button'); payBtn.className='btn-pay'; payBtn.textContent='Pay'; payBtn.onclick=()=>openPayPopup(table,tag);
-      btns.append(moveBtn,cancelBtn,payBtn); head.append(span,btns); tbox.appendChild(head);
+      const moveBtn=document.createElement('button'); moveBtn.className='btn-move'; moveBtn.textContent='Move';
+      moveBtn.onclick=()=>{
+        const newDesc=prompt('Move to which Table Description?'); if(!newDesc) return;
+        table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
+        if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId);
+        let target=posData.openOrders.find(t=>t.tableDescription===newDesc);
+        if(!target){ target={tableId:uid(),tableDescription:newDesc,status:'occupied',createdAt:new Date().toISOString(),orders:[]}; posData.openOrders.push(target); }
+        target.orders.push(tag); renderTables(); updateSnapshot();
+      };
 
-      tag.items.forEach(i=>{ const d=document.createElement('div'); d.className='order-box'; d.textContent=`${i.item} x ${i.qty} - $${i.price}`; tbox.appendChild(d); });
-      const total = tag.items.reduce((s,i)=>s+i.qty*i.price,0); const tot=document.createElement('div'); tot.className='order-total'; tot.textContent=`Total: $${total}`; tbox.appendChild(tot);
+      const cancelBtn=document.createElement('button'); cancelBtn.className='btn-cancel'; cancelBtn.textContent='Cancel';
+      cancelBtn.onclick=()=>{
+        table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
+        if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId);
+        renderTables(); updateSnapshot();
+      };
+
+      const payBtn=document.createElement('button'); payBtn.className='btn-pay'; payBtn.textContent='Pay';
+      payBtn.onclick=()=>openPayPopup(table,tag);
+
+      const irregularBtn=document.createElement('button'); irregularBtn.className='btn-irregular'; irregularBtn.textContent='Irregular';
+      irregularBtn.onclick=()=>openIrregularPopup(table,tag);
+
+      btns.append(moveBtn,cancelBtn,payBtn,irregularBtn);
+      head.append(span,btns); tbox.appendChild(head);
+
+      tag.items.forEach(i=>{
+        const d=document.createElement('div'); d.className='order-box'; d.textContent=`${i.item} x ${i.qty} - $${i.price}`; tbox.appendChild(d);
+      });
+
+      const total=tag.items.reduce((s,i)=>s+i.qty*i.price,0);
+      const tot=document.createElement('div'); tot.className='order-total'; tot.textContent=`Total: $${total}`; tbox.appendChild(tot);
       box.appendChild(tbox);
     });
     container.appendChild(box);
   });
+  renderDebts();
 }
 
+// Payment Popup Logic
 let payContext=null; const payPopup=$('payPopup'); const payDetails=$('payDetails');
-function openPayPopup(table,tag){ payContext={table,tag}; payDetails.innerHTML = tag.items.map(i=>`${i.item} x ${i.qty}`).join('<br>'); payPopup.style.display='flex'; }
+function openPayPopup(table,tag){ payContext={table,tag}; payDetails.innerHTML=tag.items.map(i=>`${i.item} x ${i.qty}`).join('<br>'); payPopup.style.display='flex'; }
 $('cancelPaymentBtn').onclick=()=>{payPopup.style.display='none'; payContext=null};
 $('confirmPaymentBtn').onclick=()=>{
   if(!payContext) return;
   const {table,tag}=payContext;
-  tag.items.forEach(i=>{ posData.closedOrders.push({ item:i.item, qty:i.qty, price:i.price, timestampCreated:i.timestampCreated, paymentMethod:$('paymentMethodSelect').value }); });
+  tag.items.forEach(i=>posData.closedOrders.push({item:i.item,qty:i.qty,price:i.price,timestampCreated:i.timestampCreated,paymentMethod:$('paymentMethodSelect').value}));
   table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
   if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId);
   payPopup.style.display='none'; payContext=null; renderTables(); updateSnapshot();
 };
 
-function openPayPopupForDebt(debt){
-  payContext={debt};
-  payDetails.innerHTML = `<strong>${debt.description}</strong> - $${debt.amount}`;
-  payPopup.style.display='flex';
+// Irregular Popup Logic
+let irregularContext=null; const irregularPopup=$('irregularPopup'); const irregularType=$('irregularTypeSelect'); const irregularExtra=$('irregularExtra');
+function openIrregularPopup(table,tag){
+  irregularContext={table,tag}; irregularType.value='Debt'; updateIrregularExtra(); irregularPopup.style.display='flex';
 }
-$('confirmPaymentBtn').onclick = ()=>{
-  if(!payContext) return;
-  if(payContext.debt){
-    posData.closedOrders.push({ item:'Debt Payment', qty:1, price:payContext.debt.amount, timestampCreated:new Date().toISOString(), paymentMethod:$('paymentMethodSelect').value });
-    posData.irregularOrders = posData.irregularOrders.filter(o=>o!==payContext.debt);
-    renderDebts();
-  } else {
-    const {table,tag}=payContext;
-    tag.items.forEach(i=>{ posData.closedOrders.push({ item:i.item, qty:i.qty, price:i.price, timestampCreated:i.timestampCreated, paymentMethod:$('paymentMethodSelect').value }); });
-    table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
-    if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId);
+$('cancelIrregularBtn').onclick=()=>{irregularPopup.style.display='none'; irregularContext=null;};
+function updateIrregularExtra(){
+  irregularExtra.innerHTML='';
+  if(irregularType.value==='Debt'){
+    irregularExtra.innerHTML='<input id="debtDesc" placeholder="Description"><input id="debtAmount" type="number" placeholder="Amount">';
+  } else if(irregularType.value==='Other'){
+    irregularExtra.innerHTML='<input id="otherDesc" placeholder="Description">';
   }
-  payPopup.style.display='none'; payContext=null; renderTables(); updateSnapshot(); renderDebts();
+}
+irregularType.onchange=updateIrregularExtra;
+$('confirmIrregularBtn').onclick=()=>{
+  if(!irregularContext) return;
+  const {table,tag}=irregularContext;
+  const extra={type:irregularType.value};
+  if(irregularType.value==='Debt'){ extra.description=$('debtDesc').value; extra.amount=$('debtAmount').value; }
+  else if(irregularType.value==='Other'){ extra.description=$('otherDesc').value; }
+  posData.irregularOrders.push({tableDescription:table.tableDescription,tag,extra});
+  table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId);
+  if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId);
+  irregularPopup.style.display='none'; irregularContext=null; renderTables(); updateSnapshot();
+};
+
+// Debts Section
+function renderDebts(){
+  const container=$('debtsContainer'); container.innerHTML='';
+  posData.irregularOrders.filter(r=>r.extra?.type==='Debt').forEach(r=>{
+    const dbox=document.createElement('div'); dbox.className='order-tag-box';
+    dbox.innerHTML=`Description: ${r.extra.description}, Amount: $${r.extra.amount}`;
+    const payBtn=document.createElement('button'); payBtn.className='btn-pay'; payBtn.textContent='Pay';
+    payBtn.onclick=()=>{
+      payContext={table:{},tag:r.tag};
+      $('paymentMethodSelect').value='Cash';
+      payPopup.style.display='flex';
+      confirmPaymentBtn.onclick=()=>{
+        r.tag.items.forEach(i=>posData.closedOrders.push({item:i.item,qty:i.qty,price:i.price,timestampCreated:i.timestampCreated,paymentMethod:$('paymentMethodSelect').value}));
+        posData.irregularOrders=posData.irregularOrders.filter(x=>x!==r);
+        payPopup.style.display='none'; payContext=null; renderTables(); updateSnapshot();
+      };
+    };
+    dbox.appendChild(payBtn); container.appendChild(dbox);
+  });
 }
 
-$('placeOrderBtn').onclick=()=>{ const t=$('tableDesc').value.trim(); if(!t){alert('Table Description required');return;} placeOrder({ tableDescription:t, orderTag:$('orderTag').value.trim(), section:$('section').value, item:$('item').value, qty:$('qty').value }); };
-updateSnapshot(); renderDebts();
+$('placeOrderBtn').onclick=()=>{
+  const t=$('tableDesc').value.trim(); if(!t){alert('Table Description required');return;}
+  placeOrder({tableDescription:t, orderTag:$('orderTag').value.trim(), section:$('section').value, item:$('item').value, qty:$('qty').value});
+};
+
+updateSnapshot();
 </script>
 </body>
 </html>
-
