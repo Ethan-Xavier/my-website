@@ -128,4 +128,3 @@ $('placeOrderBtn').onclick=()=>{ const t=$('tableDesc').value.trim(); if(!t){ale
 
 updateSnapshot();
 renderTables();
-snapshot()
