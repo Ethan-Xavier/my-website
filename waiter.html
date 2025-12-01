@@ -1,104 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>POS — Waiter Platform</title>
-
-<link rel="stylesheet" href="style.css" />
-
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <h2>POS — Waiter Platform</h2>
 
 <div class="card">
-  <label for="tableDesc">Table Description (required)</label>
-  <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" />
-  
-  <label for="orderTag">Order Tag</label>
-  <input id="orderTag" placeholder="Single Order" value="Single Order" />
+  <label>Table Description</label>
+  <input id="tableDesc">
+
+  <label>Order Tag</label>
+  <input id="orderTag" value="Single Order">
 
   <div class="row">
-    <div>
-      <label for="section">Section</label>
-      <select id="section">
-        <option value="Food">Food</option>
-        <option value="Drinks">Drinks</option>
-      </select>
-    </div>
-    <div>
-      <label for="item">Item</label>
-      <select id="item"></select>
-    </div>
-    <div style="max-width:110px">
-      <label for="qty">Qty</label>
-      <input id="qty" type="number" min="1" value="1" />
-    </div>
+    <select id="section">
+      <option>Food</option>
+      <option>Drinks</option>
+    </select>
+    <select id="item"></select>
+    <input id="qty" type="number" value="1" min="1">
   </div>
 
-  <button id="placeOrderBtn">Place order</button>
+  <button id="placeOrderBtn">Place Order</button>
 </div>
 
 <div class="card">
-  <h3>Tables & Orders</h3>
+  <h3>Tables</h3>
   <div id="tables"></div>
 </div>
 
 <div class="card">
-  <h3>Debts</h3>
-  <div id="debts"></div>
-</div>
-
-<div class="card">
-  <h3>posData (local snapshot)</h3>
   <pre id="snapshot"></pre>
-</div>
-
-<!-- PAY POPUP -->
-<div id="payPopup">
-  <div id="payPopupContent">
-    <h3>Confirm Payment</h3>
-    <div id="payDetails"></div>
-    <label for="paymentMethodSelect">Payment Method</label>
-    <select id="paymentMethodSelect">
-      <option>Cash</option>
-      <option>Card</option>
-      <option>Mobile</option>
-    </select>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button id="confirmPaymentBtn" class="btn-pay" style="flex:1">Confirm</button>
-      <button id="cancelPaymentBtn" class="btn-cancel" style="flex:1">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- IRREGULAR POPUP -->
-<div id="irregularPopup">
-  <div id="irregularPopupContent">
-    <h3>Select Irregular Type</h3>
-    <div id="irregularOptions">
-      <button class="option-btn" data-type="Debt">Debt</button>
-      <button class="option-btn" data-type="Cooking mistake">Cooking mistake</button>
-      <button class="option-btn" data-type="Other">Other</button>
-    </div>
-
-    <div id="irregularInputDiv" style="display:none;">
-      <label>Description</label>
-      <input id="irregularDesc" />
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button id="irregularConfirmBtn" style="flex:1">Confirm</button>
-        <button id="irregularCancelBtn" style="flex:1">Cancel</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- ADD ITEM POPUP -->
 <div id="addItemPopup">
   <div id="addItemPopupContent">
     <h3>Add Item</h3>
-
     <label>Section</label>
     <select id="addSection"></select>
 
@@ -106,11 +49,11 @@
     <select id="addItem"></select>
 
     <label>Qty</label>
-    <input id="addQty" type="number" min="1" value="1">
+    <input id="addQty" type="number" value="1" min="1">
 
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button id="addItemConfirm" class="btn-pay" style="flex:1">Add</button>
-      <button id="addItemCancel" class="btn-cancel" style="flex:1">Cancel</button>
+      <button id="addConfirm" class="btn-pay">Add</button>
+      <button id="addCancel" class="btn-cancel">Cancel</button>
     </div>
   </div>
 </div>
