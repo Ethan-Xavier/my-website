@@ -40,7 +40,7 @@ function openPayPopup(table,tag,fromDebt=null){
   payPopup.style.display='flex';
 }
 $('cancelPaymentBtn').onclick=()=>{payPopup.style.display='none';payContext=null;};
-$('confirmPaymentBtn').onclick=()=>{
+$('confirmPaymentBtn').onclick=()=>{ 
   if(!payContext) return;
   const {table,tag,fromDebt}=payContext;
   const method=$('paymentMethodSelect').value;
@@ -81,6 +81,26 @@ function storeIrregular(type,desc){
   renderTables(); updateSnapshot();
 }
 
+// ADD ITEM BUTTON
+function addAddItemButton(btns,table,tag){
+  const addBtn=document.createElement('button');
+  addBtn.className='btn-add-item';
+  addBtn.textContent='+';
+  addBtn.title='Add more items';
+  addBtn.onclick=()=>{
+    const section = prompt('Enter section (Food or Drinks):', 'Food');
+    if(!section || !MENU[section]) return alert('Invalid section');
+    const itemNames = MENU[section].map(i=>i.name).join(', ');
+    const item = prompt(`Select item from ${itemNames}:`, MENU[section][0].name);
+    if(!item || !MENU[section].find(i=>i.name===item)) return alert('Invalid item');
+    const qtyStr = prompt('Quantity:', '1');
+    const qty = Number(qtyStr);
+    if(isNaN(qty) || qty<=0) return alert('Invalid quantity');
+    placeOrder({ tableDescription: table.tableDescription, orderTag: tag.orderTag, section, item, qty });
+  };
+  btns.appendChild(addBtn);
+}
+
 // RENDER TABLES + DEBTS + EDITABLE TABLE/ORDER NAMES
 function renderTables(){
   const container=$('tables'); container.innerHTML='';
@@ -98,11 +118,27 @@ function renderTables(){
       const span=document.createElement('span'); span.textContent=tag.orderTag;
       span.onclick=()=>{ const newTag=prompt('Edit Order Tag:',tag.orderTag); if(newTag){ tag.orderTag=newTag; renderTables(); updateSnapshot(); }};
       const btns=document.createElement('div'); btns.className='tag-buttons';
+
       const moveBtn=document.createElement('button'); moveBtn.className='btn-move'; moveBtn.textContent='Move';
-      moveBtn.onclick=()=>{ const newDesc=prompt('Move to which Table Description?'); if(!newDesc)return; table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); let target=posData.openOrders.find(t=>t.tableDescription===newDesc); if(!target){ target={tableId:uid(),tableDescription:newDesc,status:'occupied',createdAt:new Date().toISOString(),orders:[]}; posData.openOrders.push(target); } target.orders.push(tag); renderTables(); updateSnapshot(); };
-      const cancelBtn=document.createElement('button'); cancelBtn.className='btn-cancel'; cancelBtn.textContent='Cancel'; cancelBtn.onclick=()=>{ table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); renderTables(); updateSnapshot(); };
+      moveBtn.onclick=()=>{ 
+        const newDesc=prompt('Move to which Table Description?'); if(!newDesc)return; 
+        table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); 
+        if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); 
+        let target=posData.openOrders.find(t=>t.tableDescription===newDesc); 
+        if(!target){ target={tableId:uid(),tableDescription:newDesc,status:'occupied',createdAt:new Date().toISOString(),orders:[]}; posData.openOrders.push(target); } 
+        target.orders.push(tag); renderTables(); updateSnapshot(); 
+      };
+
+      const cancelBtn=document.createElement('button'); cancelBtn.className='btn-cancel'; cancelBtn.textContent='Cancel'; 
+      cancelBtn.onclick=()=>{ table.orders=table.orders.filter(o=>o.orderTagId!==tag.orderTagId); if(table.orders.length===0) posData.openOrders=posData.openOrders.filter(t=>t.tableId!==table.tableId); renderTables(); updateSnapshot(); };
+
       const payBtn=document.createElement('button'); payBtn.className='btn-pay'; payBtn.textContent='Pay'; payBtn.onclick=()=>openPayPopup(table,tag,null);
-      btns.append(moveBtn,cancelBtn,payBtn); addIrregularButton(btns,table,tag); head.append(span,btns); tbox.appendChild(head);
+
+      btns.append(moveBtn,cancelBtn,payBtn); 
+      addIrregularButton(btns,table,tag);
+      addAddItemButton(btns,table,tag); // <-- new add item button
+
+      head.append(span,btns); tbox.appendChild(head);
 
       tag.items.forEach(i=>{
         const d=document.createElement('div'); d.className='order-box'; d.textContent=`${i.item} x ${i.qty} - ${formatPrice(i.price)}`;
@@ -110,7 +146,9 @@ function renderTables(){
         tbox.appendChild(d);
       });
 
-      const total=tag.items.reduce((s,i)=>s+i.qty*i.price,0); const tot=document.createElement('div'); tot.className='order-total'; tot.textContent=`Total: ${formatPrice(total)}`; tbox.appendChild(tot);
+      const total=tag.items.reduce((s,i)=>s+i.qty*i.price,0); 
+      const tot=document.createElement('div'); tot.className='order-total'; tot.textContent=`Total: ${formatPrice(total)}`; 
+      tbox.appendChild(tot);
       box.appendChild(tbox);
     });
     container.appendChild(box);
@@ -128,4 +166,3 @@ $('placeOrderBtn').onclick=()=>{ const t=$('tableDesc').value.trim(); if(!t){ale
 
 updateSnapshot();
 renderTables();
-
