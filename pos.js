@@ -38,7 +38,7 @@ const payPopup=$('payPopup'), payDetails=$('payDetails');
 
 function openPayPopup(table,tag,fromDebt=null){
   payContext={table,tag,fromDebt};
-  payDetails.innerHTML = tag.items.map(i=>`${i.item} x ${i.qty}`).join('<br>');
+  payDetails.innerHTML = tag.items.map(i=>`${i.item} x ${i.qty} - ${formatPrice(i.price)}`).join('<br>');
   payPopup.style.display='flex';
 }
 
@@ -49,11 +49,12 @@ $('confirmPaymentBtn').onclick=()=>{
   const {table,tag,fromDebt}=payContext;
   const method=$('paymentMethodSelect').value;
 
-  // Save items to closedOrders
+  // Save items to closedOrders (include price for all)
   tag.items.forEach(i=>{
     posData.closedOrders.push({
       item: i.item,
       qty: i.qty,
+      price: i.price,
       timestampCreated: i.timestampCreated,
       paymentMethod: method
     });
@@ -259,7 +260,7 @@ function renderTables(){
     const details=document.createElement('div');
     details.innerHTML = `
       <strong>${debt.description || debt.orderTag}</strong><br>
-      ${debt.items.map(i=>`${i.item} x ${i.qty}`).join('<br>')}
+      ${debt.items.map(i=>`${i.item} x ${i.qty} - ${formatPrice(i.price)}`).join('<br>')}
       <div style="margin-top:4px;font-weight:600;">Total: ${formatPrice(debt.total)}</div>
     `;
 
