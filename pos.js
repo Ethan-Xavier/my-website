@@ -49,7 +49,6 @@ $('confirmPaymentBtn').onclick=()=>{
   const {table,tag,fromDebt}=payContext;
   const method=$('paymentMethodSelect').value;
 
-  // Save items to closedOrders (include price for all)
   tag.items.forEach(i=>{
     posData.closedOrders.push({
       item: i.item,
@@ -60,7 +59,6 @@ $('confirmPaymentBtn').onclick=()=>{
     });
   });
 
-  // Remove debt if paying debt
   if(fromDebt){
     posData.irregularOrders = posData.irregularOrders.filter(o => o.orderTagId !== tag.orderTagId);
   } else {
@@ -130,9 +128,7 @@ document.querySelectorAll('#irregularOptions .option-btn').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('#irregularOptions .option-btn').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
-    const type=b.dataset.type;
-    if(type==='Debt'||type==='Other') irregularInputDiv.style.display='block';
-    else{ storeIrregular(type,''); irregularPopup.style.display='none'; }
+    irregularInputDiv.style.display='block';
   };
 });
 
@@ -149,7 +145,6 @@ function storeIrregular(type,desc){
   const {table,tag}=irregularContext;
   const total=tag.items.reduce((s,i)=>s+i.qty*i.price,0);
 
-  // Store full item data
   posData.irregularOrders.push({
     orderTagId: tag.orderTagId,
     tableDescription: table.tableDescription,
@@ -253,7 +248,6 @@ function renderTables(){
     container.appendChild(box);
   });
 
-  // Display debts with full item info
   posData.irregularOrders.filter(o=>o.type==='Debt').forEach(debt=>{
     const dbox=document.createElement('div'); dbox.className='order-tag-box';
 
