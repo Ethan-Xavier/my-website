@@ -30,11 +30,15 @@ pre { background:#f7f7f7; padding:12px; border-radius:6px; overflow:auto; max-he
 /* --- Tables & Orders --- */
 .table-box { border:1px solid #aaa; border-radius:8px; padding:12px; margin-bottom:16px; background:#fdfdfd; }
 .table-title { font-weight:700; font-size:16px; margin-bottom:8px; color:#333; cursor:pointer; }
+
+/* --- Timestamp styling for tables and order tags --- */
+.table-title, .tag-header { font-size:14px; color:#666; }
+
+/* --- Individual Orders --- */
 .order-tag-box { border:1px solid #bbb; border-radius:6px; padding:8px; margin:8px 0; background:#eef; }
 .tag-header { font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
 .tag-buttons { display:flex; gap:6px; }
 
-/* --- Individual Orders --- */
 .order-box { border:1px solid #ccc; border-radius:6px; padding:6px; margin:4px 0; background:#f7f7ff; cursor:pointer; }
 .order-total { margin-top:6px; font-weight:600; text-align:right; }
 
