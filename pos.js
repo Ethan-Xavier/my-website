@@ -9,7 +9,7 @@ const MENU = {
 
 /* --- Functions --- */
 
-// Populate items into a select element based on section
+// Shortcut to populate items into a select element
 function populateItems(section, selectId='item'){
   const sel=$(selectId); sel.innerHTML='';
   MENU[section].forEach(it=>{
@@ -20,33 +20,41 @@ function populateItems(section, selectId='item'){
   });
 }
 
-// Get item price from MENU
-function getItemPrice(section,item){ return MENU[section].find(i=>i.name===item)?.price || 0; }
+// Get item price
+function getItemPrice(section,item){ 
+  return MENU[section].find(i=>i.name===item)?.price || 0; 
+}
 
-// Update JSON snapshot for debugging
+// Update JSON snapshot
 function updateSnapshot(){ $('snapshot').textContent = JSON.stringify(posData,null,2); }
 
-// Place order function
+// --- Place Order ---
 function placeOrder({tableDescription,orderTag,section,item,qty}){
+  if(!tableDescription || !item || !qty) return alert("Please fill all required fields.");
+
   const timestamp = new Date().toISOString();
   let table=posData.openOrders.find(t=>t.tableDescription===tableDescription);
   if(!table){ 
     table={tableId:uid(),tableDescription,status:'occupied',createdAt:timestamp,orders:[]}; 
     posData.openOrders.push(table);
   }
+
   let tag=table.orders.find(x=>x.orderTag===orderTag);
-  if(!tag){ tag={orderTagId:uid(),orderTag,items:[],createdAt:timestamp}; table.orders.push(tag);}
-  let existing=tag.items.find(i=>i.item);
+  if(!tag){ tag={orderTagId:uid(),orderTag,items:[],createdAt:timestamp}; table.orders.push(tag); }
+
+  let existing=tag.items.find(i=>i.item===item);
   if(existing) existing.qty+=Number(qty);
   else tag.items.push({ item, qty:Number(qty), price:getItemPrice(section,item), timestampCreated:timestamp });
-  renderTables(); updateSnapshot();
+
+  renderTables(); 
+  updateSnapshot();
 }
 
-/* --- Render Function --- */
+/* --- Render Tables --- */
 function renderTables(){
   const container=$('tables'); container.innerHTML='';
 
-  // Sort tables: newest first
+  // Sort tables newest first
   const sortedTables = posData.openOrders.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 
   sortedTables.forEach(table=>{
@@ -78,8 +86,38 @@ function renderTables(){
   });
 }
 
+/* --- Event Bindings --- */
+window.addEventListener('DOMContentLoaded',()=>{
+  // Initial populate
+  populateItems($('section').value);
+  renderTables();
+
+  // Bind place order button
+  $('placeOrderBtn').onclick = ()=>{
+    placeOrder({
+      tableDescription: $('tableDesc').value,
+      orderTag: $('orderTag').value || 'Single Order',
+      section: $('section').value,
+      item: $('item').value,
+      qty: $('qty').value
+    });
+  };
+
+  // Section dropdown change
+  $('section').onchange = (e)=> populateItems(e.target.value);
+
+  // Initialize popups (optional: close buttons)
+  const popups = ['payPopup','irregularPopup','addItemPopup'];
+  popups.forEach(id=>{
+    const popup = $(id);
+    const closeBtn = popup.querySelector('.popup-close');
+    if(closeBtn) closeBtn.onclick = ()=> popup.style.display='none';
+  });
+});
+
 /* --- Notes ---
-- Tables now sorted newest first by createdAt.
-- Table and order tag timestamps are displayed (HH:MM:SS format).
-- Future edits: any additional info can be added inside renderTables with minimal changes.
+- Fixed placeOrderBtn binding.
+- Added validation: tableDescription, item, qty required.
+- Tables sorted newest first; timestamps visible.
+- Future edits: continue using renderTables() for UI updates.
 */
