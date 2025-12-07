@@ -5,41 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>POS — Waiter Platform</title>
 
+<!-- Link to main stylesheet -->
 <link rel="stylesheet" href="style.css" />
+
 </head>
 <body>
 
-<!-- --- LOGIN BLOCKING OVERLAY --- -->
-<div id="loginPopup">
-  <div id="loginPopupContent">
-    <h3>Waiter Login</h3>
+<h2>POS — Waiter Platform <span id="currentWaiterBadge"></span></h2>
 
-    <label for="waiterSelect">Username</label>
+<!-- --- Login Overlay (blocks UI until login) --- -->
+<div id="loginOverlay">
+  <div id="loginBox">
+    <h3>Waiter Login</h3>
+    <label for="waiterSelect">Waiter</label>
     <select id="waiterSelect">
-      <option value="">-- Select waiter --</option>
+      <option value="">Select waiter</option>
       <option value="Nina">Nina</option>
       <option value="Ethan">Ethan</option>
       <option value="Shakina">Shakina</option>
     </select>
 
     <label for="waiterPassword">Password</label>
-    <input id="waiterPassword" type="password" placeholder="Enter password" />
+    <input id="waiterPassword" type="password" placeholder="Password" />
 
-    <button id="loginBtn" class="btn-pay" style="margin-top:12px;">
-      Login
-    </button>
+    <div style="margin-top:10px;display:flex;gap:8px;">
+      <button id="loginBtn" class="btn-pay" style="flex:1">Login</button>
+      <button id="guestBtn" class="btn-cancel" style="flex:1">Logout</button>
+    </div>
+    <div id="loginMsg" style="margin-top:8px;color:#c00;font-weight:600;"></div>
   </div>
 </div>
 
-<h2>POS — Waiter Platform</h2>
-
+<!-- --- Main Order Card --- -->
 <div class="card">
+  <!-- Table description input (required) -->
   <label for="tableDesc">Table Description (required)</label>
   <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" />
 
+  <!-- Order tag input (optional label for grouping orders) -->
   <label for="orderTag">Order Tag</label>
-  <input id="orderTag" value="Single Order" />
+  <input id="orderTag" placeholder="Single Order" value="Single Order" />
 
+  <!-- Selection row: Section, Item, Qty -->
   <div class="row">
     <div>
       <label for="section">Section</label>
@@ -58,24 +65,97 @@
     </div>
   </div>
 
+  <!-- Button to place order -->
   <button id="placeOrderBtn">Place order</button>
 </div>
 
+<!-- --- Tables & Orders Section --- -->
 <div class="card">
   <h3>Tables & Orders</h3>
   <div id="tables"></div>
 </div>
 
+<!-- --- Debts Section --- -->
 <div class="card">
   <h3>Debts</h3>
   <div id="debts"></div>
 </div>
 
+<!-- --- POS Data Snapshot (for debugging/local storage) --- -->
 <div class="card">
   <h3>posData (local snapshot)</h3>
   <pre id="snapshot"></pre>
 </div>
 
+<!-- --- Pay Popup --- -->
+<div id="payPopup">
+  <div id="payPopupContent">
+    <span class="popup-close" id="closePayPopup">&times;</span>
+    <h3>Confirm Payment</h3>
+    <div id="payDetails"></div>
+    <label for="paymentMethodSelect">Payment Method</label>
+    <select id="paymentMethodSelect">
+      <option value="Cash">Cash</option>
+      <option value="Card">Card</option>
+      <option value="Mobile">Mobile</option>
+    </select>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button id="confirmPaymentBtn" class="btn-pay" style="flex:1">Confirm</button>
+      <button id="cancelPaymentBtn" class="btn-cancel" style="flex:1">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- --- Irregular Orders Popup --- -->
+<div id="irregularPopup">
+  <div id="irregularPopupContent">
+    <span class="popup-close" id="closeIrregularPopup">&times;</span>
+    <h3>Select Irregular Order Type</h3>
+    <div id="irregularOptions">
+      <button class="option-btn" data-type="Debt">Debt</button>
+      <button class="option-btn" data-type="Other">Other</button>
+    </div>
+    <div id="irregularInputDiv" style="display:none;">
+      <label for="irregularDesc">Description:</label>
+      <input id="irregularDesc" placeholder="Enter description..." />
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button id="irregularConfirmBtn" style="flex:1;">Confirm</button>
+        <button id="irregularCancelBtn" style="flex:1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- --- Add Item Popup --- -->
+<div id="addItemPopup">
+  <div id="addItemPopupContent">
+    <span class="popup-close" id="closeAddItemPopup">&times;</span>
+    <h3>Add Item to Order</h3>
+    <div class="row">
+      <div>
+        <label for="addSection">Section</label>
+        <select id="addSection">
+          <option value="Food">Food</option>
+          <option value="Drinks">Drinks</option>
+        </select>
+      </div>
+      <div>
+        <label for="addItem">Item</label>
+        <select id="addItem"></select>
+      </div>
+      <div style="max-width:110px">
+        <label for="addQty">Qty</label>
+        <input id="addQty" type="number" min="1" value="1" />
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button id="addItemConfirmBtn" class="btn-pay" style="flex:1">Add</button>
+      <button id="addItemCancelBtn" class="btn-cancel" style="flex:1">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- --- Scripts --- -->
 <script src="utils.js"></script>
 <script src="pos.js"></script>
 </body>
