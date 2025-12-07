@@ -9,13 +9,14 @@
 </head>
 <body>
 
-<!-- --- WAITER LOGIN --- -->
+<!-- --- LOGIN BLOCKING OVERLAY --- -->
 <div id="loginPopup">
   <div id="loginPopupContent">
     <h3>Waiter Login</h3>
 
-    <label for="waiterSelect">Waiter</label>
+    <label for="waiterSelect">Username</label>
     <select id="waiterSelect">
+      <option value="">-- Select waiter --</option>
       <option value="Nina">Nina</option>
       <option value="Ethan">Ethan</option>
       <option value="Shakina">Shakina</option>
@@ -24,19 +25,20 @@
     <label for="waiterPassword">Password</label>
     <input id="waiterPassword" type="password" placeholder="Enter password" />
 
-    <button id="loginBtn" class="btn-pay" style="margin-top:10px;width:100%">Login</button>
+    <button id="loginBtn" class="btn-pay" style="margin-top:12px;">
+      Login
+    </button>
   </div>
 </div>
 
 <h2>POS — Waiter Platform</h2>
 
-<!-- --- Main Order Card --- -->
 <div class="card">
   <label for="tableDesc">Table Description (required)</label>
   <input id="tableDesc" placeholder="Table 1 / John - Table / Window seat" />
 
   <label for="orderTag">Order Tag</label>
-  <input id="orderTag" placeholder="Single Order" value="Single Order" />
+  <input id="orderTag" value="Single Order" />
 
   <div class="row">
     <div>
